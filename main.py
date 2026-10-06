@@ -19,6 +19,9 @@ from api.routes import router as task_router
 # Import AI agent routes
 from api.agent_routes import router as agent_router
 
+# Import multi-agent workflow routes
+from api.workflow_routes import router as workflow_router
+
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
@@ -26,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 # Create the FastAPI application
 app = FastAPI(
-    title="Single Agent Task Assistant",
-    description="COIT12204 Assessment 3",
-    version="1.0.0"
+    title="Multi-Agent Task Assistant",
+    description="COIT12204 Multi-Agent Task Assistant",
+    version="2.0.0"
 )
 
 
@@ -38,12 +41,15 @@ app.include_router(task_router)
 # Register AI agent routes
 app.include_router(agent_router)
 
+# Register multi-agent workflow routes
+app.include_router(workflow_router)
+
 
 # Log application startup
 @app.on_event("startup")
 def startup_event():
     logger.info(
-        "Single Agent Task Assistant application started"
+        "Multi-Agent Task Assistant application started"
     )
 
 
@@ -51,5 +57,5 @@ def startup_event():
 @app.get("/")
 def root():
     return {
-        "message": "Single Agent Task Assistant API"
+        "message": "Multi-Agent Task Assistant API"
     }
