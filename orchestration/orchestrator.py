@@ -87,8 +87,27 @@ class Orchestrator:
         # Find the requested agent
         agent = self.agents[receiver]
 
-        # Send the message to the agent
-        return agent.process(message)
+        # Protect the workflow from unexpected agent failures
+        try:
+            return agent.process(message)
+
+        except Exception as exc:
+            logger.exception(
+                "Workflow %s | Agent '%s' failed unexpectedly",
+                self.workflow_id,
+                receiver,
+            )
+
+            return AgentMessage(
+                sender="orchestrator",
+                receiver="user",
+                intent="agent_error",
+                content={
+                    "status": "error",
+                    "agent": receiver,
+                    "reason": str(exc),
+                },
+            )
 
     def run(self, task: str) -> AgentMessage:
         """
@@ -140,7 +159,7 @@ class Orchestrator:
 
                 return current_message
 
-            # Stop the workflow if an agent reports a failure
+            # Stop the workflow if an agent reports a known failure
             if current_message.intent in {
                 "planning_failed",
                 "execution_failed",
@@ -156,13 +175,17 @@ class Orchestrator:
             # Route the message to the requested agent
             next_message = self._route(current_message)
 
-            # Stop immediately if routing failed
-            if next_message.intent == "routing_error":
+            # Stop immediately if routing or agent execution failed
+            if next_message.intent in {
+                "routing_error",
+                "agent_error",
+            }:
                 self._record_message(next_message)
 
                 logger.error(
-                    "Workflow %s | FAILED | routing error",
+                    "Workflow %s | FAILED | intent=%s",
                     self.workflow_id,
+                    next_message.intent,
                 )
 
                 return next_message
@@ -177,7 +200,8 @@ class Orchestrator:
             self.max_iterations,
         )
 
-        return AgentMessage(
+        # Create a structured guardrail failure message
+        failure_message = AgentMessage(
             sender="orchestrator",
             receiver="user",
             intent="max_iterations_exceeded",
@@ -187,3 +211,8 @@ class Orchestrator:
                 "steps": self.step_count,
             },
         )
+
+        # Store the guardrail failure in the workflow history
+        self._record_message(failure_message)
+
+        return failure_message

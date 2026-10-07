@@ -3,7 +3,7 @@ FastAPI endpoints for the multi-agent workflow.
 """
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from models.agent_message import AgentMessage
 from orchestration.orchestrator import Orchestrator
@@ -27,6 +27,23 @@ class WorkflowRequest(BaseModel):
         max_length=500,
         description="Task to be processed by the agents",
     )
+
+    @field_validator("task")
+    @classmethod
+    def validate_task(cls, value: str) -> str:
+        """
+        Reject empty or whitespace-only tasks and
+        remove unnecessary surrounding whitespace.
+        """
+
+        cleaned_value = value.strip()
+
+        if not cleaned_value:
+            raise ValueError(
+                "Task cannot be empty or whitespace only"
+            )
+
+        return cleaned_value
 
 
 class WorkflowResponse(BaseModel):
