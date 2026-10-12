@@ -1,3 +1,4 @@
+
 import logging
 import uuid
 from typing import List
@@ -8,35 +9,51 @@ from agents.reviewer_agent import ReviewerAgent
 from models.agent_message import AgentMessage
 
 
-# Create a logger for the orchestrator
 logger = logging.getLogger(__name__)
 
 
 class Orchestrator:
     """
-    Coordinates communication between the Planner, Worker,
-    and Reviewer agents.
+    Coordinates communication between the Planner,
+    Worker and Reviewer agents.
+
+    Supports:
+    - Structured message routing
+    - Workflow logging and tracing
+    - Reviewer feedback and revisions
+    - Maximum iteration guardrails
+    - Agent error handling
     """
 
-    def __init__(self, max_iterations: int = 5):
-        # Create the specialised agents
+    def __init__(
+        self,
+        max_iterations: int = 10,
+        max_revisions: int = 2,
+    ):
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be at least 1")
+
+        if max_revisions < 0:
+            raise ValueError("max_revisions cannot be negative")
+
+        # Initialise the specialised agents
         self.planner = PlannerAgent()
         self.worker = WorkerAgent()
         self.reviewer = ReviewerAgent()
 
-        # Guardrail to prevent uncontrolled workflow loops
+        # Workflow guardrails
         self.max_iterations = max_iterations
+        self.max_revisions = max_revisions
 
-        # Tracks the number of workflow steps
+        # Workflow state
         self.step_count = 0
-
-        # Unique identifier for the current workflow run
+        self.revision_count = 0
         self.workflow_id = ""
 
-        # Stores all messages exchanged during the workflow
+        # Complete workflow message history
         self.message_history: List[AgentMessage] = []
 
-        # Maps receiver names to agent instances
+        # Available agents
         self.agents = {
             "planner": self.planner,
             "worker": self.worker,
@@ -45,7 +62,7 @@ class Orchestrator:
 
     def _record_message(self, message: AgentMessage) -> None:
         """
-        Store and log each message exchanged during the workflow.
+        Store and log a workflow message.
         """
 
         self.message_history.append(message)
@@ -59,6 +76,31 @@ class Orchestrator:
             message.intent,
         )
 
+    def _create_failure(
+        self,
+        intent: str,
+        reason: str,
+        **details,
+    ) -> AgentMessage:
+        """
+        Create and record a structured failure message.
+        """
+
+        failure_message = AgentMessage(
+            sender="orchestrator",
+            receiver="user",
+            intent=intent,
+            content={
+                "status": "error",
+                "reason": reason,
+                **details,
+            },
+        )
+
+        self._record_message(failure_message)
+
+        return failure_message
+
     def _route(self, message: AgentMessage) -> AgentMessage:
         """
         Route a structured message to the correct agent.
@@ -66,7 +108,6 @@ class Orchestrator:
 
         receiver = message.receiver
 
-        # Validate that the receiver exists
         if receiver not in self.agents:
             logger.error(
                 "Workflow %s | Invalid receiver '%s'",
@@ -84,16 +125,21 @@ class Orchestrator:
                 },
             )
 
-        # Find the requested agent
         agent = self.agents[receiver]
 
-        # Protect the workflow from unexpected agent failures
         try:
-            return agent.process(message)
+            response = agent.process(message)
 
-        except Exception as exc:
+            if not isinstance(response, AgentMessage):
+                raise TypeError(
+                    "Agent must return an AgentMessage"
+                )
+
+            return response
+
+        except Exception:
             logger.exception(
-                "Workflow %s | Agent '%s' failed unexpectedly",
+                "Workflow %s | Agent '%s' failed",
                 self.workflow_id,
                 receiver,
             )
@@ -105,21 +151,37 @@ class Orchestrator:
                 content={
                     "status": "error",
                     "agent": receiver,
-                    "reason": str(exc),
+                    "reason": "Agent processing failed",
                 },
             )
 
     def run(self, task: str) -> AgentMessage:
         """
-        Start and coordinate a complete multi-agent workflow.
+        Execute the complete multi-agent workflow.
+
+        Normal flow:
+        User -> Planner -> Worker -> Reviewer
+        -> Orchestrator
+
+        Revision flow:
+        Reviewer -> Worker -> Reviewer
+
+        Stops on approval, failure or guardrail limit.
         """
 
-        # Reset workflow-specific state
+        # Reset state for each workflow run
         self.step_count = 0
+        self.revision_count = 0
         self.message_history = []
 
-        # Generate a unique ID for this workflow run
+        # Create a unique workflow identifier
         self.workflow_id = str(uuid.uuid4())[:8]
+
+        if not isinstance(task, str) or not task.strip():
+            return self._create_failure(
+                intent="invalid_task",
+                reason="Task cannot be empty",
+            )
 
         logger.info(
             "Workflow %s | START | task=%s",
@@ -127,42 +189,43 @@ class Orchestrator:
             task,
         )
 
-        # Create the initial message for the Planner Agent
+        # Initial message to the Planner Agent
         current_message = AgentMessage(
             sender="user",
             receiver="planner",
             intent="plan_task",
             content={
-                "task": task,
+                "task": task.strip(),
             },
         )
 
-        # Continue routing until the workflow finishes
-        # or the maximum iteration limit is reached
         while self.step_count < self.max_iterations:
 
             self.step_count += 1
 
-            # Store and log the current message
+            # Record current message
             self._record_message(current_message)
 
-            # Check whether the Reviewer approved the result
+            # Workflow successfully approved
             if (
                 current_message.receiver == "orchestrator"
                 and current_message.intent == "review_approved"
             ):
                 logger.info(
-                    "Workflow %s | COMPLETED | steps=%s",
+                    "Workflow %s | COMPLETED | steps=%s | revisions=%s",
                     self.workflow_id,
                     self.step_count,
+                    self.revision_count,
                 )
 
                 return current_message
 
-            # Stop the workflow if an agent reports a known failure
+            # Stop on known agent failures
             if current_message.intent in {
                 "planning_failed",
                 "execution_failed",
+                "routing_error",
+                "agent_error",
             }:
                 logger.error(
                     "Workflow %s | FAILED | intent=%s",
@@ -172,47 +235,65 @@ class Orchestrator:
 
                 return current_message
 
-            # Route the message to the requested agent
+            # Handle Reviewer revision requests
+            if current_message.intent == "revision_required":
+
+                # Only Reviewer can request a revision
+                if (
+                    current_message.sender != "reviewer"
+                    or current_message.receiver != "worker"
+                ):
+                    return self._create_failure(
+                        intent="routing_error",
+                        reason="Invalid revision request route",
+                    )
+
+                # Stop before allowing an extra revision
+                if self.revision_count >= self.max_revisions:
+                    logger.error(
+                        "Workflow %s | REVISION LIMIT EXCEEDED",
+                        self.workflow_id,
+                    )
+
+                    return self._create_failure(
+                        intent="revision_limit_exceeded",
+                        reason="Maximum revisions exceeded",
+                        revisions=self.revision_count,
+                    )
+
+                self.revision_count += 1
+
+                logger.warning(
+                    "Workflow %s | REVISION %s of %s",
+                    self.workflow_id,
+                    self.revision_count,
+                    self.max_revisions,
+                )
+
+            # Route the message to the next agent
             next_message = self._route(current_message)
 
-            # Stop immediately if routing or agent execution failed
+            # Handle routing and unexpected agent errors
             if next_message.intent in {
                 "routing_error",
                 "agent_error",
             }:
                 self._record_message(next_message)
 
-                logger.error(
-                    "Workflow %s | FAILED | intent=%s",
-                    self.workflow_id,
-                    next_message.intent,
-                )
-
                 return next_message
 
-            # Continue the workflow with the next message
+            # Move to the next message
             current_message = next_message
 
-        # Guardrail: stop if maximum iterations are reached
+        # Maximum iteration limit reached
         logger.error(
             "Workflow %s | MAX ITERATIONS | limit=%s",
             self.workflow_id,
             self.max_iterations,
         )
 
-        # Create a structured guardrail failure message
-        failure_message = AgentMessage(
-            sender="orchestrator",
-            receiver="user",
+        return self._create_failure(
             intent="max_iterations_exceeded",
-            content={
-                "status": "error",
-                "reason": "Maximum workflow iterations reached",
-                "steps": self.step_count,
-            },
+            reason="Maximum workflow iterations reached",
+            steps=self.step_count,
         )
-
-        # Store the guardrail failure in the workflow history
-        self._record_message(failure_message)
-
-        return failure_message

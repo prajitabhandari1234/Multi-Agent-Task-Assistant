@@ -1,3 +1,4 @@
+
 """
 Tests for the multi-agent orchestrator.
 
@@ -10,8 +11,10 @@ Covers:
 - Agent exceptions
 - Workflow state reset
 - Failure message tracking
+- Invalid iteration configuration
 """
 
+import pytest
 from unittest.mock import Mock
 
 from models.agent_message import AgentMessage
@@ -234,13 +237,13 @@ def test_orchestrator_resets_state_between_runs():
 
 
 def test_zero_iterations_returns_guardrail_error():
-    """A zero-iteration limit should prevent agent execution."""
+    """
+    Verify that the orchestrator rejects an invalid
+    maximum iteration configuration.
+    """
 
-    orchestrator = Orchestrator(max_iterations=0)
-
-    result = orchestrator.run("Complete AI assignment")
-
-    assert result.intent == "max_iterations_exceeded"
-    assert orchestrator.step_count == 0
-    assert len(orchestrator.message_history) == 1
-    assert orchestrator.message_history[0].intent == "max_iterations_exceeded"
+    with pytest.raises(
+        ValueError,
+        match="max_iterations must be at least 1"
+    ):
+        Orchestrator(max_iterations=0)

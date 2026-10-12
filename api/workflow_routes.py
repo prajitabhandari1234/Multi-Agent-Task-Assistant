@@ -73,7 +73,8 @@ def run_workflow(request: WorkflowRequest):
 
     # Create a new orchestrator for each API request
     orchestrator = Orchestrator(
-        max_iterations=5
+        max_iterations=10,
+        max_revisions=2,
     )
 
     # Run the complete multi-agent workflow
