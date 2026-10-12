@@ -1,41 +1,80 @@
-# Import logging so the Planner Agent can record
-# received and sent messages
+
 import logging
 
-# Import the shared structured message model used
-# for communication between agents
 from models.agent_message import AgentMessage
 
-
-# Create a module-specific logger for the Planner Agent
 logger = logging.getLogger(__name__)
 
 
-# Planner Agent is responsible for analysing a user task
-# and breaking it into smaller subtasks
 class PlannerAgent:
+    """
+    Analyse a user task and produce structured,
+    task-specific subtasks for the Worker Agent.
+    """
 
     def __init__(self):
-        # Unique name used when sending agent messages
         self.name = "planner"
+
+    def _generate_subtasks(self, task: str) -> list[str]:
+        """
+        Generate subtasks based on the task category.
+        """
+
+        task_lower = task.lower()
+
+        if any(word in task_lower for word in [
+            "study", "exam", "revision"
+        ]):
+            return [
+                "Identify subjects, topics and learning goals",
+                "Prioritise topics based on difficulty and deadlines",
+                "Allocate study sessions across available days",
+                "Include breaks, revision and progress checks",
+            ]
+
+        if any(word in task_lower for word in [
+            "presentation", "slides", "powerpoint"
+        ]):
+            return [
+                "Identify the presentation topic and audience",
+                "Prepare a logical slide outline",
+                "Develop key points for each slide",
+                "Suggest visuals and presentation improvements",
+            ]
+
+        if any(word in task_lower for word in [
+            "report", "assignment", "essay"
+        ]):
+            return [
+                "Identify the requirements and expected deliverables",
+                "Prepare a structured outline",
+                "Identify research and supporting evidence needed",
+                "Develop a drafting and review plan",
+            ]
+
+        return [
+            f"Clarify the objective and requirements of: {task}",
+            "Break the work into manageable activities",
+            "Organise activities into a logical sequence",
+            "Identify completion criteria and review steps",
+        ]
 
     def process(self, message: AgentMessage) -> AgentMessage:
         """
-        Process an incoming task message and create
-        a structured plan for the Worker Agent.
+        Process an incoming task and prepare
+        a structured plan.
         """
 
-        # Log the received message
         logger.info(
             "Planner received message from %s with intent %s",
             message.sender,
             message.intent,
         )
 
-        # Extract the task from the structured message
-        task = message.content.get("task", "").strip()
+        raw_task = message.content.get("task", "")
 
-        # Basic validation before creating a plan
+        task = raw_task.strip() if isinstance(raw_task, str) else ""
+
         if not task:
             logger.warning("Planner received an empty task")
 
@@ -49,14 +88,8 @@ class PlannerAgent:
                 },
             )
 
-        # Break the task into clear subtasks
-        subtasks = [
-            f"Analyse requirements for '{task}'",
-            f"Prepare an action plan for '{task}'",
-            f"Complete the required work for '{task}'",
-        ]
+        subtasks = self._generate_subtasks(task)
 
-        # Create a structured message for the Worker Agent
         response = AgentMessage(
             sender=self.name,
             receiver="worker",
@@ -70,11 +103,10 @@ class PlannerAgent:
             },
         )
 
-        # Log the outgoing message
         logger.info(
-            "Planner sending message to %s with intent %s",
-            response.receiver,
-            response.intent,
+            "Planner generated %s subtasks for task: %s",
+            len(subtasks),
+            task,
         )
 
         return response
