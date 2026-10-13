@@ -1,30 +1,104 @@
 
 import logging
+import re
 
 from models.agent_message import AgentMessage
 
+
+# Create a logger for the Planner Agent
 logger = logging.getLogger(__name__)
 
 
 class PlannerAgent:
     """
-    Analyse a user task and produce structured,
-    task-specific subtasks for the Worker Agent.
+    Analyse a user task and generate structured,
+    context-aware subtasks for the Worker Agent.
+
+    Responsibilities:
+    - Validate incoming tasks
+    - Identify the task category
+    - Preserve the user's original context
+    - Generate relevant subtasks
+    - Provide execution constraints
     """
 
     def __init__(self):
         self.name = "planner"
 
-    def _generate_subtasks(self, task: str) -> list[str]:
+    def _identify_task_category(self, task: str) -> str:
         """
-        Generate subtasks based on the task category.
+        Identify the task category using keyword matching.
+
+        This is a rule-based classification method.
+        It does not require a Gemini API request.
         """
 
         task_lower = task.lower()
 
-        if any(word in task_lower for word in [
-            "study", "exam", "revision"
+        # Use word boundaries to avoid partial-word matches
+        def contains_keyword(keywords):
+            return any(
+                re.search(
+                    rf"\b{re.escape(keyword)}\b",
+                    task_lower,
+                )
+                for keyword in keywords
+            )
+
+        # Academic planning and study-related tasks
+        if contains_keyword([
+            "study",
+            "studying",
+            "student",
+            "students",
+            "university",
+            "college",
+            "subject",
+            "subjects",
+            "course",
+            "courses",
+            "semester",
+            "timetable",
+            "exam",
+            "exams",
+            "revision",
+            "learning",
         ]):
+            return "study"
+
+        # Presentation tasks
+        if contains_keyword([
+            "presentation",
+            "presentations",
+            "slides",
+            "powerpoint",
+            "slideshow",
+        ]):
+            return "presentation"
+
+        # Report and assignment tasks
+        if contains_keyword([
+            "report",
+            "reports",
+            "assignment",
+            "assignments",
+            "essay",
+            "essays",
+        ]):
+            return "report"
+
+        # General task planning
+        return "general"
+
+    def _generate_subtasks(self, task: str) -> list[str]:
+        """
+        Generate four subtasks based on the identified
+        task category.
+        """
+
+        category = self._identify_task_category(task)
+
+        if category == "study":
             return [
                 "Identify subjects, topics and learning goals",
                 "Prioritise topics based on difficulty and deadlines",
@@ -32,9 +106,7 @@ class PlannerAgent:
                 "Include breaks, revision and progress checks",
             ]
 
-        if any(word in task_lower for word in [
-            "presentation", "slides", "powerpoint"
-        ]):
+        if category == "presentation":
             return [
                 "Identify the presentation topic and audience",
                 "Prepare a logical slide outline",
@@ -42,9 +114,7 @@ class PlannerAgent:
                 "Suggest visuals and presentation improvements",
             ]
 
-        if any(word in task_lower for word in [
-            "report", "assignment", "essay"
-        ]):
+        if category == "report":
             return [
                 "Identify the requirements and expected deliverables",
                 "Prepare a structured outline",
@@ -61,8 +131,8 @@ class PlannerAgent:
 
     def process(self, message: AgentMessage) -> AgentMessage:
         """
-        Process an incoming task and prepare
-        a structured plan.
+        Process an incoming task and return a structured
+        message containing subtasks and execution constraints.
         """
 
         logger.info(
@@ -71,12 +141,19 @@ class PlannerAgent:
             message.intent,
         )
 
+        # Extract and validate the task
         raw_task = message.content.get("task", "")
 
-        task = raw_task.strip() if isinstance(raw_task, str) else ""
+        task = (
+            raw_task.strip()
+            if isinstance(raw_task, str)
+            else ""
+        )
 
         if not task:
-            logger.warning("Planner received an empty task")
+            logger.warning(
+                "Planner received an empty task"
+            )
 
             return AgentMessage(
                 sender=self.name,
@@ -88,8 +165,13 @@ class PlannerAgent:
                 },
             )
 
+        # Identify task category
+        category = self._identify_task_category(task)
+
+        # Generate task-specific subtasks
         subtasks = self._generate_subtasks(task)
 
+        # Send structured instructions to the Worker Agent
         response = AgentMessage(
             sender=self.name,
             receiver="worker",
@@ -100,12 +182,16 @@ class PlannerAgent:
             },
             constraints={
                 "follow_plan": True,
+                "preserve_user_context": True,
+                "avoid_unsupported_assumptions": True,
+                "task_category": category,
             },
         )
 
         logger.info(
-            "Planner generated %s subtasks for task: %s",
+            "Planner generated %s subtasks | category=%s | task=%s",
             len(subtasks),
+            category,
             task,
         )
 

@@ -1,17 +1,20 @@
 
 """
-Tests for the multi-agent orchestrator.
+Tests for the Multi-Agent Task Assistant Orchestrator.
 
 Covers:
 - Successful Planner -> Worker -> Reviewer workflow
-- Message history and communication order
+- Agent communication history
 - Workflow identifiers
 - Maximum iteration guardrail
 - Invalid routing
 - Agent exceptions
+- Planning and execution failures
 - Workflow state reset
-- Failure message tracking
 - Invalid iteration configuration
+
+Agent responses are mocked to ensure deterministic tests
+without external Gemini API requests.
 """
 
 import pytest
@@ -21,10 +24,80 @@ from models.agent_message import AgentMessage
 from orchestration.orchestrator import Orchestrator
 
 
+def setup_successful_workflow(orchestrator):
+    """
+    Configure the agents to complete a normal workflow.
+
+    Expected communication:
+    User -> Planner -> Worker -> Reviewer -> Orchestrator
+
+    Total recorded messages: 4.
+    """
+
+    def planner_response(message):
+        return AgentMessage(
+            sender="planner",
+            receiver="worker",
+            intent="execute_subtasks",
+            content={
+                "task": message.content["task"],
+                "subtasks": [
+                    "Analyse the task",
+                    "Prepare the output",
+                ],
+            },
+        )
+
+    def worker_response(message):
+        return AgentMessage(
+            sender="worker",
+            receiver="reviewer",
+            intent="execution_result",
+            content={
+                "task": message.content["task"],
+                "subtasks": message.content["subtasks"],
+                "results": [
+                    "Task analysis completed.",
+                    "Output prepared successfully.",
+                ],
+                "draft_output": "Completed task output.",
+            },
+        )
+
+    def reviewer_response(message):
+        return AgentMessage(
+            sender="reviewer",
+            receiver="orchestrator",
+            intent="review_approved",
+            content={
+                "status": "approved",
+                "task": message.content["task"],
+                "subtasks": message.content["subtasks"],
+                "results": message.content["results"],
+                "final_output": message.content["draft_output"],
+            },
+        )
+
+    orchestrator.planner.process = Mock(
+        side_effect=planner_response
+    )
+
+    orchestrator.worker.process = Mock(
+        side_effect=worker_response
+    )
+
+    orchestrator.reviewer.process = Mock(
+        side_effect=reviewer_response
+    )
+
+    return orchestrator
+
+
 def test_orchestrator_successful_workflow():
-    """A normal workflow should finish with reviewer approval."""
+    """A normal workflow should finish with Reviewer approval."""
 
     orchestrator = Orchestrator(max_iterations=5)
+    setup_successful_workflow(orchestrator)
 
     result = orchestrator.run("Complete AI assignment")
 
@@ -32,13 +105,16 @@ def test_orchestrator_successful_workflow():
     assert result.receiver == "orchestrator"
     assert result.intent == "review_approved"
     assert result.content["status"] == "approved"
+
     assert orchestrator.step_count == 4
+    assert len(orchestrator.message_history) == 4
 
 
 def test_orchestrator_records_message_history():
     """Messages should follow the expected agent sequence."""
 
     orchestrator = Orchestrator(max_iterations=5)
+    setup_successful_workflow(orchestrator)
 
     orchestrator.run("Prepare weekly study plan")
 
@@ -61,6 +137,7 @@ def test_orchestrator_generates_workflow_id():
     """Each workflow should have a traceable identifier."""
 
     orchestrator = Orchestrator()
+    setup_successful_workflow(orchestrator)
 
     orchestrator.run("Create presentation slides")
 
@@ -69,9 +146,10 @@ def test_orchestrator_generates_workflow_id():
 
 
 def test_workflow_ids_are_different():
-    """Separate executions should receive unique IDs."""
+    """Separate executions should receive unique workflow IDs."""
 
     orchestrator = Orchestrator()
+    setup_successful_workflow(orchestrator)
 
     orchestrator.run("Task one")
     first_id = orchestrator.workflow_id
@@ -86,6 +164,7 @@ def test_max_iterations_guardrail():
     """The workflow should stop when its iteration limit is reached."""
 
     orchestrator = Orchestrator(max_iterations=2)
+    setup_successful_workflow(orchestrator)
 
     result = orchestrator.run("Complete AI assignment")
 
@@ -193,7 +272,7 @@ def test_planning_failure_stops_workflow():
 
 
 def test_execution_failure_stops_workflow():
-    """A worker failure should stop the workflow safely."""
+    """A Worker failure should stop the workflow safely."""
 
     orchestrator = Orchestrator()
 
@@ -220,6 +299,7 @@ def test_orchestrator_resets_state_between_runs():
     """Running again should reset the step count and message history."""
 
     orchestrator = Orchestrator()
+    setup_successful_workflow(orchestrator)
 
     orchestrator.run("First task")
     first_id = orchestrator.workflow_id
@@ -237,13 +317,10 @@ def test_orchestrator_resets_state_between_runs():
 
 
 def test_zero_iterations_returns_guardrail_error():
-    """
-    Verify that the orchestrator rejects an invalid
-    maximum iteration configuration.
-    """
+    """An invalid maximum iteration configuration must be rejected."""
 
     with pytest.raises(
         ValueError,
-        match="max_iterations must be at least 1"
+        match="max_iterations must be at least 1",
     ):
         Orchestrator(max_iterations=0)

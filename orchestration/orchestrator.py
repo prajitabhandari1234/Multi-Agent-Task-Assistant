@@ -17,12 +17,14 @@ class Orchestrator:
     Coordinates communication between the Planner,
     Worker and Reviewer agents.
 
-    Supports:
-    - Structured message routing
+    Features:
+    - Structured inter-agent communication
+    - Message routing and validation
     - Workflow logging and tracing
-    - Reviewer feedback and revisions
-    - Maximum iteration guardrails
-    - Agent error handling
+    - Reviewer feedback and revision handling
+    - Maximum iteration and revision guardrails
+    - Structured agent error handling
+    - Workflow state and message history
     """
 
     def __init__(
@@ -30,13 +32,18 @@ class Orchestrator:
         max_iterations: int = 10,
         max_revisions: int = 2,
     ):
+        # Validate workflow configuration
         if max_iterations < 1:
-            raise ValueError("max_iterations must be at least 1")
+            raise ValueError(
+                "max_iterations must be at least 1"
+            )
 
         if max_revisions < 0:
-            raise ValueError("max_revisions cannot be negative")
+            raise ValueError(
+                "max_revisions cannot be negative"
+            )
 
-        # Initialise the specialised agents
+        # Initialise specialised agents
         self.planner = PlannerAgent()
         self.worker = WorkerAgent()
         self.reviewer = ReviewerAgent()
@@ -50,19 +57,51 @@ class Orchestrator:
         self.revision_count = 0
         self.workflow_id = ""
 
-        # Complete workflow message history
+        # Message history
         self.message_history: List[AgentMessage] = []
 
-        # Available agents
+        # Agent registry
         self.agents = {
             "planner": self.planner,
             "worker": self.worker,
             "reviewer": self.reviewer,
         }
 
-    def _record_message(self, message: AgentMessage) -> None:
+        # Allowed communication routes
+        self.allowed_routes = {
+            ("user", "planner", "plan_task"),
+            ("planner", "worker", "execute_subtasks"),
+            ("worker", "reviewer", "execution_result"),
+            ("reviewer", "worker", "revision_required"),
+        }
+
+        # Recognised terminal failures
+        self.failure_intents = {
+            "invalid_task",
+            "planning_failed",
+            "execution_failed",
+            "routing_error",
+            "agent_error",
+            "revision_limit_exceeded",
+            "max_iterations_exceeded",
+        }
+
+    def _reset_workflow(self) -> None:
         """
-        Store and log a workflow message.
+        Reset workflow state before each execution.
+        """
+
+        self.step_count = 0
+        self.revision_count = 0
+        self.message_history = []
+        self.workflow_id = uuid.uuid4().hex[:8]
+
+    def _record_message(
+        self,
+        message: AgentMessage,
+    ) -> None:
+        """
+        Record and log a workflow message.
         """
 
         self.message_history.append(message)
@@ -99,18 +138,73 @@ class Orchestrator:
 
         self._record_message(failure_message)
 
+        logger.error(
+            "Workflow %s | FAILED | intent=%s | reason=%s",
+            self.workflow_id,
+            intent,
+            reason,
+        )
+
         return failure_message
 
-    def _route(self, message: AgentMessage) -> AgentMessage:
+    def _is_valid_route(
+        self,
+        message: AgentMessage,
+    ) -> bool:
         """
-        Route a structured message to the correct agent.
+        Check whether the message follows an allowed
+        communication route.
+        """
+
+        route = (
+            message.sender,
+            message.receiver,
+            message.intent,
+        )
+
+        return route in self.allowed_routes
+
+    def _is_valid_approval(
+        self,
+        message: AgentMessage,
+    ) -> bool:
+        """
+        Validate that approval originates from the
+        Reviewer and contains an approved result.
+        """
+
+        return (
+            message.sender == "reviewer"
+            and message.receiver == "orchestrator"
+            and message.intent == "review_approved"
+            and isinstance(message.content, dict)
+            and message.content.get("status") == "approved"
+            and isinstance(
+                message.content.get("final_output"),
+                str,
+            )
+            and bool(
+                message.content.get(
+                    "final_output", ""
+                ).strip()
+            )
+        )
+
+    def _route(
+        self,
+        message: AgentMessage,
+    ) -> AgentMessage:
+        """
+        Route a structured message to the
+        appropriate specialised agent.
         """
 
         receiver = message.receiver
 
+        # Validate receiver
         if receiver not in self.agents:
             logger.error(
-                "Workflow %s | Invalid receiver '%s'",
+                "Workflow %s | Unknown receiver: %s",
                 self.workflow_id,
                 receiver,
             )
@@ -121,7 +215,31 @@ class Orchestrator:
                 intent="routing_error",
                 content={
                     "status": "error",
-                    "reason": f"Unknown receiver: {receiver}",
+                    "reason": (
+                        f"Unknown receiver: {receiver}"
+                    ),
+                },
+            )
+
+        # Validate sender, receiver and intent
+        if not self._is_valid_route(message):
+            logger.error(
+                "Workflow %s | Invalid route: %s -> %s | %s",
+                self.workflow_id,
+                message.sender,
+                message.receiver,
+                message.intent,
+            )
+
+            return AgentMessage(
+                sender="orchestrator",
+                receiver="user",
+                intent="routing_error",
+                content={
+                    "status": "error",
+                    "reason": (
+                        "Invalid agent communication route"
+                    ),
                 },
             )
 
@@ -130,6 +248,7 @@ class Orchestrator:
         try:
             response = agent.process(message)
 
+            # Ensure the agent returns a structured message
             if not isinstance(response, AgentMessage):
                 raise TypeError(
                     "Agent must return an AgentMessage"
@@ -155,33 +274,39 @@ class Orchestrator:
                 },
             )
 
-    def run(self, task: str) -> AgentMessage:
+    def run(
+        self,
+        task: str,
+    ) -> AgentMessage:
         """
         Execute the complete multi-agent workflow.
 
-        Normal flow:
+        Normal workflow:
         User -> Planner -> Worker -> Reviewer
         -> Orchestrator
 
-        Revision flow:
+        Revision workflow:
         Reviewer -> Worker -> Reviewer
 
-        Stops on approval, failure or guardrail limit.
+        Stops when:
+        - Reviewer approves the result
+        - An agent fails
+        - A routing error occurs
+        - Maximum revisions are reached
+        - Maximum iterations are reached
         """
 
-        # Reset state for each workflow run
-        self.step_count = 0
-        self.revision_count = 0
-        self.message_history = []
+        # Reset workflow state
+        self._reset_workflow()
 
-        # Create a unique workflow identifier
-        self.workflow_id = str(uuid.uuid4())[:8]
-
+        # Validate input
         if not isinstance(task, str) or not task.strip():
             return self._create_failure(
                 intent="invalid_task",
                 reason="Task cannot be empty",
             )
+
+        task = task.strip()
 
         logger.info(
             "Workflow %s | START | task=%s",
@@ -189,16 +314,17 @@ class Orchestrator:
             task,
         )
 
-        # Initial message to the Planner Agent
+        # Create initial user message
         current_message = AgentMessage(
             sender="user",
             receiver="planner",
             intent="plan_task",
             content={
-                "task": task.strip(),
+                "task": task,
             },
         )
 
+        # Execute workflow with iteration guardrail
         while self.step_count < self.max_iterations:
 
             self.step_count += 1
@@ -206,13 +332,22 @@ class Orchestrator:
             # Record current message
             self._record_message(current_message)
 
-            # Workflow successfully approved
-            if (
-                current_message.receiver == "orchestrator"
-                and current_message.intent == "review_approved"
-            ):
+            # Step 1: Check for successful approval
+            if current_message.intent == "review_approved":
+
+                if not self._is_valid_approval(
+                    current_message
+                ):
+                    return self._create_failure(
+                        intent="routing_error",
+                        reason=(
+                            "Invalid Reviewer approval message"
+                        ),
+                    )
+
                 logger.info(
-                    "Workflow %s | COMPLETED | steps=%s | revisions=%s",
+                    "Workflow %s | COMPLETED | "
+                    "steps=%s | revisions=%s",
                     self.workflow_id,
                     self.step_count,
                     self.revision_count,
@@ -220,25 +355,21 @@ class Orchestrator:
 
                 return current_message
 
-            # Stop on known agent failures
-            if current_message.intent in {
-                "planning_failed",
-                "execution_failed",
-                "routing_error",
-                "agent_error",
-            }:
+            # Step 2: Stop on recognised failures
+            if current_message.intent in self.failure_intents:
+
                 logger.error(
-                    "Workflow %s | FAILED | intent=%s",
+                    "Workflow %s | STOPPED | intent=%s",
                     self.workflow_id,
                     current_message.intent,
                 )
 
                 return current_message
 
-            # Handle Reviewer revision requests
+            # Step 3: Process Reviewer revision requests
             if current_message.intent == "revision_required":
 
-                # Only Reviewer can request a revision
+                # Validate the revision request
                 if (
                     current_message.sender != "reviewer"
                     or current_message.receiver != "worker"
@@ -248,10 +379,12 @@ class Orchestrator:
                         reason="Invalid revision request route",
                     )
 
-                # Stop before allowing an extra revision
+                # Check maximum revision guardrail
                 if self.revision_count >= self.max_revisions:
+
                     logger.error(
-                        "Workflow %s | REVISION LIMIT EXCEEDED",
+                        "Workflow %s | "
+                        "REVISION LIMIT EXCEEDED",
                         self.workflow_id,
                     )
 
@@ -261,6 +394,7 @@ class Orchestrator:
                         revisions=self.revision_count,
                     )
 
+                # Record revision attempt
                 self.revision_count += 1
 
                 logger.warning(
@@ -270,10 +404,23 @@ class Orchestrator:
                     self.max_revisions,
                 )
 
-            # Route the message to the next agent
+            # Step 4: Validate route before execution
+            if not self._is_valid_route(current_message):
+
+                return self._create_failure(
+                    intent="routing_error",
+                    reason=(
+                        "Invalid workflow message route: "
+                        f"{current_message.sender} -> "
+                        f"{current_message.receiver} "
+                        f"({current_message.intent})"
+                    ),
+                )
+
+            # Step 5: Route message to the agent
             next_message = self._route(current_message)
 
-            # Handle routing and unexpected agent errors
+            # Step 6: Handle routing or agent errors
             if next_message.intent in {
                 "routing_error",
                 "agent_error",
@@ -282,10 +429,34 @@ class Orchestrator:
 
                 return next_message
 
-            # Move to the next message
+            # Step 7: Validate agent response origin
+            if next_message.sender != current_message.receiver:
+
+                return self._create_failure(
+                    intent="routing_error",
+                    reason=(
+                        "Agent response sender does not "
+                        "match the expected agent"
+                    ),
+                )
+
+            # Step 8: Validate next message destination
+            if (
+                next_message.receiver == "orchestrator"
+                and next_message.intent != "review_approved"
+            ):
+                return self._create_failure(
+                    intent="routing_error",
+                    reason=(
+                        "Unexpected message sent "
+                        "to orchestrator"
+                    ),
+                )
+
+            # Continue workflow
             current_message = next_message
 
-        # Maximum iteration limit reached
+        # Maximum iteration guardrail reached
         logger.error(
             "Workflow %s | MAX ITERATIONS | limit=%s",
             self.workflow_id,

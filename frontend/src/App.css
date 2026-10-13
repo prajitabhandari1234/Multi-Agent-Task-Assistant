@@ -1,51 +1,132 @@
+
+/* =========================================
+   GLOBAL STYLES
+========================================= */
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   background: #f3f6fb;
   color: #172033;
+  line-height: 1.6;
 }
 
 .app-container {
+  width: 100%;
   max-width: 1100px;
-  margin: auto;
-  padding: 32px 20px;
+  margin: 0 auto;
+  padding: 35px 20px;
 }
 
-header {
+/* =========================================
+   PAGE HEADER
+========================================= */
+
+.page-header {
   text-align: center;
   margin-bottom: 35px;
 }
 
-header h1 {
-  color: #173b72;
+.header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  background: #2563eb;
+  color: white;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 20px;
 }
 
-header p {
-  color: #667085;
+.page-header h1 {
+  color: #173b72;
+  font-size: 34px;
+  margin: 15px 0 5px;
 }
+
+.page-header p {
+  color: #667085;
+  margin: 0;
+}
+
+/* =========================================
+   SECTIONS
+========================================= */
 
 section {
   background: white;
   padding: 28px;
-  border-radius: 12px;
+  border-radius: 14px;
   margin-bottom: 25px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+  min-width: 0;
+}
+
+.section-heading {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.section-heading h2 {
+  margin: 0 0 6px;
+  color: #172033;
+}
+
+.section-heading p,
+.muted {
+  color: #667085;
+}
+
+/* =========================================
+   TASK INPUT
+========================================= */
+
+.field-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 textarea {
   display: block;
   width: 100%;
-  margin: 20px 0;
   padding: 14px;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 9px;
   font: inherit;
   resize: vertical;
+  min-height: 130px;
+  background: white;
+  color: #172033;
 }
+
+textarea:focus {
+  outline: 2px solid #93c5fd;
+  border-color: #2563eb;
+}
+
+.form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.character-count {
+  color: #667085;
+  font-size: 13px;
+}
+
+/* =========================================
+   BUTTONS
+========================================= */
 
 button {
   background: #2563eb;
@@ -55,6 +136,8 @@ button {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 14px;
+  transition: background 0.2s ease;
 }
 
 button:hover:not(:disabled) {
@@ -62,15 +145,475 @@ button:hover:not(:disabled) {
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
+/* =========================================
+   LOADING AND ERROR MESSAGES
+========================================= */
+
+.loading-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+}
+
+.spinner {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #bfdbfe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-message {
+  margin-top: 18px;
+  padding: 14px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+}
+
+/* =========================================
+   WORKFLOW RESULT HEADER
+========================================= */
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.result-header h2 {
+  margin: 0;
+}
+
+.result-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* =========================================
+   WORKFLOW STATUS
+========================================= */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 13px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.status-badge.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.failure {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* =========================================
+   WORKFLOW SUMMARY
+========================================= */
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.summary-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
+}
+
+.summary-card span {
+  display: block;
+  color: #667085;
+  font-size: 13px;
+}
+
+.summary-card strong {
+  display: block;
+  font-size: 26px;
+  color: #173b72;
+}
+
+/* =========================================
+   WORKFLOW RESULT BLOCKS
+========================================= */
+
+.result-block {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  min-width: 0;
+}
+
+.result-block h3 {
+  color: #173b72;
+  margin: 0 0 8px;
+}
+
+.subtask-list {
+  padding-left: 25px;
+}
+
+.subtask-list li {
+  margin-bottom: 12px;
+  padding-left: 5px;
+  overflow-wrap: anywhere;
+}
+
+/* =========================================
+   WORKER AGENT RESULTS
+========================================= */
+
+.worker-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.worker-item {
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #f8fbff;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.worker-item > summary {
+  cursor: pointer;
+  padding: 15px;
+  color: #1d4ed8;
+  font-weight: 700;
+  background: #eff6ff;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.worker-item > summary:hover {
+  background: #dbeafe;
+}
+
+.worker-item .formatted-output {
+  padding: 20px;
+}
+
+/* =========================================
+   AI-GENERATED MARKDOWN OUTPUT
+========================================= */
+
+.formatted-output {
+  font-size: 14px;
+  line-height: 1.75;
+  color: #172033;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+  text-align: left;
+  min-width: 0;
+}
+
+.formatted-output p {
+  margin: 0 0 14px;
+}
+
+.formatted-output p:last-child {
+  margin-bottom: 0;
+}
+
+/* Markdown headings */
+
+.formatted-output h1,
+.formatted-output h2,
+.formatted-output h3,
+.formatted-output h4,
+.formatted-output h5,
+.formatted-output h6 {
+  color: #173b72;
+  line-height: 1.4;
+  margin: 22px 0 12px;
+  font-weight: 700;
+}
+
+.formatted-output h1 {
+  font-size: 22px;
+}
+
+.formatted-output h2 {
+  font-size: 19px;
+}
+
+.formatted-output h3 {
+  font-size: 17px;
+}
+
+.formatted-output h4,
+.formatted-output h5,
+.formatted-output h6 {
+  font-size: 15px;
+}
+
+/* Markdown lists */
+
+.formatted-output ul,
+.formatted-output ol {
+  padding-left: 25px;
+  margin: 10px 0 18px;
+}
+
+.formatted-output li {
+  margin-bottom: 7px;
+}
+
+.formatted-output li > p {
+  margin-bottom: 5px;
+}
+
+/* Bold and italic text */
+
+.formatted-output strong {
+  font-weight: 700;
+  color: #173b72;
+}
+
+.formatted-output em {
+  font-style: italic;
+}
+
+/* Markdown tables */
+
+.formatted-output table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+  font-size: 13px;
+}
+
+.formatted-output th,
+.formatted-output td {
+  padding: 11px 13px;
+  border: 1px solid #cbd5e1;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.formatted-output th {
+  background: #eff6ff;
+  color: #173b72;
+  font-weight: 700;
+}
+
+.formatted-output tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+/* Markdown blockquotes */
+
+.formatted-output blockquote {
+  border-left: 4px solid #93c5fd;
+  padding: 10px 16px;
+  margin: 16px 0;
+  background: #f8fbff;
+  color: #475569;
+}
+
+.formatted-output blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Markdown code blocks */
+
+.formatted-output pre {
+  background: #172033;
+  color: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 15px 0;
+  white-space: pre;
+}
+
+.formatted-output code {
+  font-family: Consolas, monospace;
+  font-size: 13px;
+}
+
+.formatted-output :not(pre) > code {
+  background: #e2e8f0;
+  color: #1e40af;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+/* Markdown dividers */
+
+.formatted-output hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 24px 0;
+}
+
+/* Markdown links */
+
+.formatted-output a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.formatted-output a:hover {
+  color: #1d4ed8;
+}
+
+/* =========================================
+   REVIEWER AGENT PANEL
+========================================= */
+
+.review-panel {
+  padding: 18px;
+  border-radius: 10px;
+}
+
+.review-panel.approved {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.review-panel.rejected {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.review-panel p {
+  margin-bottom: 0;
+}
+
+/* =========================================
+   FINAL OUTPUT
+========================================= */
+
+.final-output {
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  max-height: 550px;
+  overflow: auto;
+  min-width: 0;
+}
+
+/* =========================================
+   AGENT COMMUNICATION HISTORY
+========================================= */
+
+.history-details {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.history-details > summary {
+  padding: 16px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 700;
+  color: #173b72;
+}
+
+.history-details > summary:hover {
+  background: #eff6ff;
+}
+
+.message-list {
+  padding: 15px;
+}
+
+.message-card {
+  padding: 15px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: white;
+}
+
+.message-card:last-child {
+  margin-bottom: 0;
+}
+
+.message-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.message-heading strong {
+  overflow-wrap: anywhere;
+}
+
+.message-heading span {
+  color: #667085;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.message-card pre {
+  padding: 12px;
+  background: #f1f5f9;
+  border-radius: 7px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 350px;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.message-card details summary {
+  cursor: pointer;
+  color: #2563eb;
+}
+
+/* =========================================
+   MULTI-AGENT ARCHITECTURE
+========================================= */
+
 .agents {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
-  margin-top: 20px;
 }
 
 .agent-card {
@@ -80,12 +623,136 @@ button:disabled {
   border: 1px solid #bfdbfe;
 }
 
-.agent-card h3 {
-  color: #1d4ed8;
+.agent-number {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-@media (max-width: 700px) {
+.agent-card h3 {
+  color: #1d4ed8;
+  margin: 8px 0;
+}
+
+.agent-card p {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+/* =========================================
+   FOOTER
+========================================= */
+
+.app-footer {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 15px;
+}
+
+/* =========================================
+   RESPONSIVE TABLET DESIGN
+========================================= */
+
+@media (max-width: 900px) {
+  .app-container {
+    padding: 25px 16px;
+  }
+
+  section {
+    padding: 22px;
+  }
+
   .agents {
+    gap: 12px;
+  }
+
+  .agent-card {
+    padding: 16px;
+  }
+}
+
+/* =========================================
+   RESPONSIVE MOBILE DESIGN
+========================================= */
+
+@media (max-width: 700px) {
+  .app-container {
+    padding: 20px 12px;
+  }
+
+  .page-header {
+    margin-bottom: 25px;
+  }
+
+  .page-header h1 {
+    font-size: 26px;
+  }
+
+  section {
+    padding: 18px;
+  }
+
+  .agents,
+  .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .result-header {
+    flex-direction: column;
+  }
+
+  .form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  .formatted-output {
+    font-size: 13px;
+  }
+
+  .formatted-output table {
+    font-size: 12px;
+  }
+
+  .formatted-output th,
+  .formatted-output td {
+    padding: 8px;
+  }
+
+  .worker-item .formatted-output,
+  .final-output {
+    padding: 12px;
+  }
+
+  .message-heading {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .message-list {
+    padding: 10px;
+  }
+
+  .message-card {
+    padding: 12px;
+  }
+}
+
+/* =========================================
+   ACCESSIBILITY
+========================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+
+  button {
+    transition: none;
   }
 }
