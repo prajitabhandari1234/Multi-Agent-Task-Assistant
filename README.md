@@ -1,82 +1,163 @@
-# Single Agent Task Assistant
+# Multi-Agent Task Assistant
 
-A FastAPI-based task management application developed for **COIT12204 – AI-Assisted Software Development, Assessment 3**.
+**COIT12204 – AI-Assisted Software Development**  
+**Assessment 4: Multi-Agent System**  
+**Developed by:** Prajita Bhandari
 
-The project extends a standard task-management REST API with a **single AI Due Date Agent**. The agent uses **LangChain** and **Google Gemini** to suggest suitable due dates based on task information and priority.
+## 1. Project Overview
 
-The application also includes LangChain tool usage, internal agent state, input/output validation, deterministic fallback logic, logging, and automated testing with pytest.
+The Multi-Agent Task Assistant is an AI-powered task management application developed using Python, FastAPI, LangChain, Google Gemini and React.
 
----
+The project extends the Single-Agent Task Assistant developed for Assessment 3 by introducing a collaborative multi-agent architecture. Three specialised AI agents—Planner, Worker and Reviewer—work together under the supervision of an Orchestrator to process user requests.
 
-## Features
+The Planner divides a task into subtasks, the Worker executes those subtasks using Google Gemini, and the Reviewer evaluates the generated output. If improvements are required, the Reviewer can request revisions before the workflow finishes.
 
-### Task Management
+The application provides a React-based user interface for submitting tasks, viewing generated results and inspecting communication between agents.
 
-The application provides REST API endpoints for basic task management:
+## 2. Project Objectives
 
-- Create a task
-- View all tasks
-- View a task by ID
-- Update a task
-- Delete a task
+The main objectives of this project are to:
 
-### AI Due Date Agent
+- Implement a multi-agent system with three specialised agents.
+- Coordinate agent execution through a central Orchestrator.
+- Support structured communication between agents.
+- Integrate Google Gemini for AI-assisted task planning, execution and review.
+- Implement feedback and revision cycles.
+- Apply input validation, exception handling and workflow guardrails.
+- Provide a user-friendly React interface.
+- Evaluate system behaviour through automated testing and live integration testing.
 
-The Due Date Agent can:
+## 3. Technology Stack
 
-- Accept a task title, description, and priority
-- Accept an optional existing task ID
-- Retrieve stored task information using a LangChain tool
-- Send structured task information to Google Gemini
-- Generate a suggested due date
-- Validate the AI-generated date
-- Reject past or incorrectly formatted dates
-- Use deterministic fallback dates when AI output is invalid
-- Continue operating when the LLM raises an exception
-- Record agent state and activity
-- Produce logs for debugging and observability
+| Technology | Purpose |
+|---|---|
+| Python 3.11 | Backend programming |
+| FastAPI | REST API development |
+| Pydantic | Data modelling and input validation |
+| Google Gemini | AI-generated planning, execution and review |
+| LangChain | AI integration for the retained single-agent functionality |
+| React | Frontend user interface |
+| Vite | Frontend development and build tool |
+| JavaScript | Frontend application logic |
+| Uvicorn | ASGI application server |
+| Pytest | Automated testing |
+| HTTPX | HTTP requests and API testing |
+| Python logging | Workflow monitoring and debugging |
+| Git and GitHub | Version control |
 
----
+## 4. Key Features
 
-## Technology Stack
+### 4.1. Multi-Agent Collaboration
 
-- Python 3.11
-- FastAPI
-- Pydantic
-- LangChain
-- Google Gemini
-- langchain-google-genai
-- google-genai
-- Uvicorn
-- pytest
-- HTTPX
-- python-dotenv
+The application implements three specialised agents that perform different responsibilities.
 
----
+**Planner Agent**
 
-## Project Structure
+- Receives the user's task.
+- Analyses the task requirements.
+- Generates structured subtasks.
+- Sends execution instructions to the Worker.
+
+**Worker Agent**
+
+- Receives subtasks from the Planner.
+- Uses Google Gemini to generate responses.
+- Processes subtasks and combines their results.
+- Sends the generated output to the Reviewer.
+- Supports revisions when requested.
+
+**Reviewer Agent**
+
+- Evaluates the Worker's generated output.
+- Checks response structure and quality.
+- Approves acceptable results.
+- Requests revisions when improvements are necessary.
+- Returns review decisions to the Orchestrator.
+
+### 4.2. Orchestrator
+
+The Orchestrator manages the overall workflow and coordinates communication between agents.
+
+Its responsibilities include:
+
+- Initialising workflows.
+- Routing messages between agents.
+- Maintaining workflow identifiers.
+- Recording message history.
+- Tracking execution steps and revisions.
+- Enforcing maximum iteration and revision limits.
+- Handling invalid routing and agent errors.
+- Returning the final workflow response.
+
+### 4.3. Structured Agent Communication
+
+Agents exchange information using the `AgentMessage` model.
+
+Each message includes:
+
+- `sender` – Component sending the message.
+- `receiver` – Intended destination.
+- `intent` – Purpose of the message.
+- `content` – Task instructions, generated results or review feedback.
+- `constraints` – Additional workflow requirements.
+
+The structured communication model improves consistency, traceability and coordination.
+
+### 4.4. Feedback and Revision
+
+The Reviewer can approve the Worker's output or request improvements.
+
+When a revision is required, the Orchestrator routes the feedback to the Worker for further processing.
+
+Execution and revision limits prevent unlimited communication cycles.
+
+### 4.5. React User Interface
+
+The frontend provides:
+
+- A task submission interface.
+- Workflow execution status.
+- Planner-generated subtasks.
+- Worker-generated results.
+- Reviewer approval information.
+- Final AI-generated output.
+- Workflow step and revision counts.
+- Agent communication history.
+- A visual summary of the multi-agent architecture.
+
+## 5. Project Structure
 
 ```text
-Single-Agent-Task-Assistant/
+Multi-Agent-Task-Assistant/
 │
 ├── agents/
 │   ├── __init__.py
 │   ├── agent_state.py
 │   ├── due_date_agent.py
-│   └── tools.py
+│   ├── planner_agent.py
+│   ├── reviewer_agent.py
+│   ├── tools.py
+│   └── worker_agent.py
 │
 ├── api/
 │   ├── __init__.py
 │   ├── agent_routes.py
-│   └── routes.py
+│   ├── routes.py
+│   └── workflow_routes.py
 │
 ├── models/
 │   ├── __init__.py
+│   ├── agent_message.py
 │   └── task.py
 │
+├── orchestration/
+│   └── orchestrator.py
+│
 ├── services/
-│   ├── __init__.py
 │   └── task_service.py
+│
+├── utils/
+│   └── llm_client.py
 │
 ├── tests/
 │   ├── __init__.py
@@ -86,1195 +167,521 @@ Single-Agent-Task-Assistant/
 │   ├── test_agent_tools.py
 │   ├── test_api_routes.py
 │   ├── test_due_date_agent.py
+│   ├── test_orchestrator.py
+│   ├── test_reviewer_agent.py
 │   ├── test_task_model.py
-│   └── test_task_service.py
+│   ├── test_task_service.py
+│   ├── test_worker_agent.py
+│   └── test_workflow_routes.py
 │
-├── utils/
-│   ├── __init__.py
-│   └── llm_client.py
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   └── vite.config.js
 │
+├── docs/
 ├── .env.example
 ├── .gitignore
 ├── main.py
-├── requirements.txt
-└── README.md
+├── README.md
+└── requirements.txt
 ```
 
----
+The project retains the earlier task-management and Due Date Agent components from Assessment 3. These remain part of the application alongside the new multi-agent functionality.
 
-## System Architecture
+## 6. Multi-Agent System Architecture
 
-The main agent workflow is:
+The workflow follows a centralised orchestration architecture.
 
 ```text
-User Request
-     |
-     v
-FastAPI Endpoint
-     |
-     v
-Pydantic Input Validation
-     |
-     v
-Due Date Agent
-     |
-     +--------------------+
-     |                    |
-     v                    |
-lookup_task Tool          |
-(optional task_id)        |
-     |                    |
-     +--------------------+
-     |
-     v
-LangChain Prompt
-     |
-     v
-Google Gemini
-     |
-     v
-Extract AI Response
-     |
-     v
-Validate Due Date
-     |
-     +----------------------+
-     |                      |
-   Valid                  Invalid/Error
-     |                      |
-     v                      v
-AI Date              Fallback Date
-     |                      |
-     +----------+-----------+
-                |
-                v
-         Update AgentState
-                |
-                v
-             Logging
-                |
-                v
-      Structured API Response
+                  USER
+                    |
+                    v
+              React Frontend
+                    |
+                    v
+              FastAPI Backend
+                    |
+                    v
+               Orchestrator
+                    |
+                    v
+               Planner Agent
+                    |
+                    | Planned Subtasks
+                    v
+                Worker Agent
+                    |
+                    | Execution Results
+                    v
+               Reviewer Agent
+                    |
+          +---------+----------+
+          |                    |
+       Approved           Revision Required
+          |                    |
+          v                    v
+     Orchestrator          Worker Agent
+          |                    |
+          |                    |
+          |             Revised Output
+          |                    |
+          |                    v
+          |               Reviewer Agent
+          |                    |
+          +--------------------+
+                    |
+                    v
+              Final Response
+                    |
+                    v
+               React Frontend
 ```
 
----
+The Orchestrator controls communication and prevents agents from exchanging messages outside the supported workflow routes.
 
-## Agent Prompt
+## 7. Agent Communication Workflow
 
-The Due Date Agent uses a LangChain `ChatPromptTemplate`.
+A successful workflow generally involves four communication steps.
 
-The prompt provides Gemini with:
+| Step | Sender | Receiver | Intent |
+|---|---|---|---|
+| 1 | User | Planner | `plan_task` |
+| 2 | Planner | Worker | `execute_subtasks` |
+| 3 | Worker | Reviewer | `execution_result` |
+| 4 | Reviewer | Orchestrator | `review_approved` |
 
-- Today's date
-- Task title
-- Task description
-- Task priority
-- Stored task information
+If the Reviewer requests a revision, additional communication steps occur.
 
-The agent is instructed to:
+### Example Task
 
-1. Return only one date.
-2. Use `YYYY-MM-DD` format.
-3. Never return a date before today's date.
-4. Return no additional explanation.
+A user may submit:
 
-The generated output is still validated by Python before it is accepted.
+> Create a seven-day study timetable for a university student studying Python, Database Systems and Networking. Include daily study sessions, revision and breaks.
 
----
+The Planner divides the task into four subtasks, the Worker generates the requested content, and the Reviewer evaluates the results.
 
-## LangChain Tool
+In a successful live integration test, the application recorded:
 
-The application contains a `lookup_task` LangChain tool.
+- Workflow steps: 4
+- Revisions: 0
+- Communication messages: 4
+- Reviewer decision: Approved
+- HTTP response: 200 OK
 
-The tool retrieves an existing task from the shared task service using its task ID.
+These values describe the demonstrated successful run, not a guarantee that every task will complete in four steps.
 
-Example:
+## 8. API Endpoints
 
-```python
-lookup_task.invoke(
-    {
-        "task_id": 1
-    }
-)
-```
+The application exposes the multi-agent workflow through FastAPI.
 
-The tool can provide the agent with:
+### 8.1. Run Multi-Agent Workflow
 
-- Task ID
-- Title
-- Description
-- Priority
-- Existing due date
-
-This allows the agent to use information already stored by the task-management application.
-
----
-
-## Agent State
-
-The application maintains an internal `AgentState`.
-
-The state tracks:
-
-```text
-last_suggestion
-error_count
-history
-last_tool_call
-```
-
-### `last_suggestion`
-
-Stores the most recent final due-date suggestion.
-
-### `error_count`
-
-Tracks validation or execution errors encountered by the agent.
-
-### `history`
-
-Stores important actions performed during agent execution.
-
-### `last_tool_call`
-
-Stores the most recently used LangChain tool.
-
-The application logs important state information to make agent behaviour easier to inspect and debug.
-
----
-
-## Due Date Validation
-
-AI-generated output is not trusted automatically.
-
-The application checks that the result:
-
-- Uses `YYYY-MM-DD`
-- Represents a real date
-- Is not before today's date
-
-For example:
-
-```text
-2026-09-25
-```
-
-is valid if it is a current or future date.
-
-An output such as:
-
-```text
-next Friday
-```
-
-is rejected because it does not match the required format.
-
----
-
-## Fallback Guardrails
-
-If Gemini returns an invalid response or an unexpected LLM error occurs, the application generates a deterministic fallback date.
-
-| Priority | Fallback |
-|---|---|
-| High | Today + 3 days |
-| Normal | Today + 7 days |
-| Low | Today + 14 days |
-
-For example, if Gemini returns:
-
-```text
-next Friday
-```
-
-for a high-priority task, the invalid response is rejected and the application returns:
-
-```text
-today + 3 days
-```
-
-This prevents malformed LLM output from causing the complete agent workflow to fail.
-
----
-
-# API Endpoints
-
-## Root Endpoint
+**Endpoint**
 
 ```http
-GET /
+POST /api/workflow/run
 ```
 
-Example response:
+**Example request**
 
 ```json
 {
-  "message": "Single Agent Task Assistant API"
+  "task": "Prepare a weekly study plan for Python, Database Systems and Networking"
 }
 ```
 
----
+The endpoint accepts a natural-language task and initiates the multi-agent workflow.
 
-## Create Task
+The response includes workflow information such as the execution status, workflow identifier, step count, revision count, generated output and communication history.
 
-```http
-POST /tasks
+### 8.2. Swagger Documentation
+
+FastAPI provides interactive API documentation at:
+
+```text
+http://127.0.0.1:8000/docs
 ```
 
-Example request:
+The documentation allows users to inspect endpoints, submit test requests and examine API responses.
 
-```json
-{
-  "title": "Complete Assessment 3",
-  "description": "Finish the assessment",
-  "priority": "high"
-}
-```
+### 8.3. Existing Task Management
 
----
+The project also retains the original task-management functionality from Assessment 3, including task creation, retrieval, updating, deletion and AI-assisted due-date suggestions.
 
-## Get All Tasks
-
-```http
-GET /tasks
-```
-
----
-
-## Get Task by ID
-
-```http
-GET /tasks/{task_id}
-```
-
-Example:
-
-```http
-GET /tasks/1
-```
-
----
-
-## Update Task
-
-```http
-PUT /tasks/{task_id}
-```
-
----
-
-## Delete Task
-
-```http
-DELETE /tasks/{task_id}
-```
-
----
-
-# AI Agent Endpoint
-
-The main AI endpoint is:
+The Due Date Agent endpoint is:
 
 ```http
 POST /api/agent/suggest_due_date
 ```
 
-Example request:
+## 9. Installation and Setup
 
-```json
-{
-  "task_id": 1,
-  "title": "Complete Assessment 3",
-  "description": "Finish coding, testing, report and demonstration video",
-  "priority": "high"
-}
+### 9.1. Prerequisites
+
+Before running the application, install:
+
+- Python 3.11 or a compatible version.
+- Node.js and npm.
+- Git.
+- Visual Studio Code or another code editor.
+- A Google Gemini API key.
+- An internet connection for live AI requests.
+
+### 9.2. Clone the Repository
+
+```bash
+git clone https://github.com/prajitabhandari1234/Multi-Agent-Task-Assistant.git
+cd Multi-Agent-Task-Assistant
 ```
 
-Example successful response:
+### 9.3. Create a Python Virtual Environment
 
-```json
-{
-  "suggested_due_date": "2026-09-21",
-  "status": "success"
-}
-```
-
-The `task_id` is optional.
-
-Example request without an existing task:
-
-```json
-{
-  "title": "Study pytest",
-  "description": "Review automated testing",
-  "priority": "normal"
-}
-```
-
----
-
-## Input Validation
-
-The API validates incoming data before calling the agent.
-
-Supported priority values are:
-
-```text
-low
-normal
-high
-```
-
-For example:
-
-```json
-{
-  "title": "Complete Assessment 3",
-  "priority": "urgent"
-}
-```
-
-is rejected because `urgent` is not an accepted priority.
-
-FastAPI returns:
-
-```text
-422 Unprocessable Entity
-```
-
-This acts as an input guardrail and prevents invalid data from reaching the AI workflow.
-
----
-
-# Installation and Setup
-
-The following instructions explain how to install and run the project on both **Windows** and **macOS**.
-
-## Prerequisites
-
-Before installing the project, make sure you have:
-
-- Python 3.11 or a compatible Python 3 version
-- pip
-- Git
-- Internet connection
-- Google Gemini API key
-
----
-
-# Windows Installation
-
-## 1. Check Python and Git
-
-Open **PowerShell** and run:
-
-```powershell
-python --version
-```
-
-Check Git:
-
-```powershell
-git --version
-```
-
-The project was developed using Python 3.11.
-
----
-
-## 2. Clone the Repository
-
-Clone the GitHub repository:
-
-```powershell
-git clone https://github.com/prajitabhandari1234/Single-Agent-Task-Assistant.git
-```
-
-Move into the project directory:
-
-```powershell
-cd Single-Agent-Task-Assistant
-```
-
----
-
-## 3. Create a Virtual Environment
-
-Create the virtual environment:
+**Windows PowerShell**
 
 ```powershell
 python -m venv .venv
-```
-
-Activate it in PowerShell:
-
-```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-After activation, the terminal should display something similar to:
-
-```text
-(.venv) PS C:\...\Single-Agent-Task-Assistant>
-```
-
-### PowerShell Execution Policy Error
-
-If PowerShell prevents the activation script from running, execute:
+If PowerShell blocks activation:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-Then activate the environment again:
-
-```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-If using Windows Command Prompt instead of PowerShell:
+**macOS/Linux**
 
-```cmd
-.venv\Scripts\activate.bat
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
----
+### 9.4. Install Backend Dependencies
 
-## 4. Upgrade pip
-
-Run:
-
-```powershell
+```bash
 python -m pip install --upgrade pip
-```
-
----
-
-## 5. Install Dependencies
-
-Install all required dependencies:
-
-```powershell
 pip install -r requirements.txt
 ```
 
-This installs the libraries required by the application, including FastAPI, Uvicorn, LangChain, Google Gemini integration, Pydantic, pytest, HTTPX, and python-dotenv.
+### 9.5. Configure Environment Variables
 
----
+Create a `.env` file in the project root.
 
-## 6. Configure the Gemini API Key
-
-The application requires a Google Gemini API key.
-
-The repository contains:
-
-```text
-.env.example
-```
-
-Create a `.env` file from the example:
+**Windows PowerShell**
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Open the newly created `.env` file and add your Gemini API key:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-Replace:
-
-```text
-your_gemini_api_key_here
-```
-
-with your actual Gemini API key.
-
----
-
-## 7. Run the Application
-
-Start the FastAPI application:
-
-```powershell
-uvicorn main:app --reload
-```
-
-For detailed logging:
-
-```powershell
-uvicorn main:app --reload --access-log --log-level info
-```
-
-The application will run locally at:
-
-```text
-http://127.0.0.1:8000
-```
-
----
-
-## 8. Open Swagger UI
-
-Open a browser and go to:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-Swagger UI can be used to manually test the CRUD endpoints and the AI Due Date Agent.
-
----
-
-## 9. Run Automated Tests
-
-With the virtual environment still activated, run:
-
-```powershell
-pytest -v
-```
-
-The completed project test suite produced:
-
-```text
-51 passed, 3 warnings
-```
-
-The warnings are deprecation warnings and do not represent failed tests.
-
-To run only the Due Date Agent tests:
-
-```powershell
-pytest tests/test_due_date_agent.py -v
-```
-
----
-
-## 10. Stop the Application
-
-Press:
-
-```text
-Ctrl + C
-```
-
-in the terminal running Uvicorn.
-
-To deactivate the virtual environment:
-
-```powershell
-deactivate
-```
-
----
-
-# macOS Installation
-
-## 1. Check Python and Git
-
-Open **Terminal**.
-
-Check Python:
-
-```bash
-python3 --version
-```
-
-Check Git:
-
-```bash
-git --version
-```
-
-The project was developed using Python 3.11.
-
----
-
-## 2. Clone the Repository
-
-Clone the GitHub repository:
-
-```bash
-git clone https://github.com/prajitabhandari1234/Single-Agent-Task-Assistant.git
-```
-
-Move into the project:
-
-```bash
-cd Single-Agent-Task-Assistant
-```
-
----
-
-## 3. Create a Virtual Environment
-
-Create the Python virtual environment:
-
-```bash
-python3 -m venv .venv
-```
-
-Activate it:
-
-```bash
-source .venv/bin/activate
-```
-
-After activation, the terminal should display something similar to:
-
-```text
-(.venv) user@MacBook Single-Agent-Task-Assistant %
-```
-
----
-
-## 4. Upgrade pip
-
-Run:
-
-```bash
-python -m pip install --upgrade pip
-```
-
----
-
-## 5. Install Dependencies
-
-Install all project dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Alternatively:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
----
-
-## 6. Configure the Gemini API Key
-
-Create a `.env` file from `.env.example`:
+**macOS/Linux**
 
 ```bash
 cp .env.example .env
 ```
 
-You can open the file using any text editor.
-
-For example:
-
-```bash
-nano .env
-```
-
-Add your Gemini API key:
+Open `.env` and configure the Gemini API key:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-Replace the placeholder with your actual Gemini API key.
+Replace the placeholder with a valid API key.
 
-If using `nano`, save using:
+Never upload a real API key to GitHub.
 
-```text
-Control + O
-```
+### 9.6. Start the Backend
 
-Press Enter, then exit using:
-
-```text
-Control + X
-```
-
----
-
-## 7. Run the Application
-
-Start the FastAPI application:
+From the project root, run:
 
 ```bash
-uvicorn main:app --reload
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-For detailed logging:
-
-```bash
-uvicorn main:app --reload --access-log --log-level info
-```
-
-If the `uvicorn` command is not found, run:
-
-```bash
-python -m uvicorn main:app --reload
-```
-
-The application will run locally at:
+The backend will be available at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
----
-
-## 8. Open Swagger UI
-
-Open a browser and go to:
+API documentation:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-Swagger UI can be used to test:
+### 9.7. Install Frontend Dependencies
 
-- Task creation
-- Task retrieval
-- Task updates
-- Task deletion
-- Due Date Agent
-- Request validation
-- Structured responses
-
----
-
-## 9. Run Automated Tests
-
-With the virtual environment activated, run:
+Open a second terminal:
 
 ```bash
-pytest -v
+cd frontend
+npm ci
 ```
 
-The completed test suite produced:
-
-```text
-51 passed, 3 warnings
-```
-
-To run only the Due Date Agent tests:
+### 9.8. Start the Frontend
 
 ```bash
-pytest tests/test_due_date_agent.py -v
+npm run dev
 ```
 
----
-
-## 10. Stop the Application
-
-Press:
+Open the local address displayed by Vite, typically:
 
 ```text
-Control + C
+http://localhost:5173
 ```
 
-in the Terminal window running Uvicorn.
+The backend and frontend should run simultaneously in separate terminals.
 
-Deactivate the virtual environment:
+## 10. Testing
+
+The project uses Pytest to verify application functionality, agent behaviour and workflow reliability.
+
+### 10.1. Run All Tests
+
+From the project root:
 
 ```bash
-deactivate
+python -m pytest -v
 ```
 
----
-
-# Quick Start
-
-## Windows PowerShell
-
-```powershell
-git clone https://github.com/prajitabhandari1234/Single-Agent-Task-Assistant.git
-cd Single-Agent-Task-Assistant
-
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-Copy-Item .env.example .env
-
-# Add your Gemini API key to .env
-
-uvicorn main:app --reload
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
----
-
-## macOS
+### 10.2. Run Orchestrator Tests
 
 ```bash
-git clone https://github.com/prajitabhandari1234/Single-Agent-Task-Assistant.git
-cd Single-Agent-Task-Assistant
-
-python3 -m venv .venv
-source .venv/bin/activate
-
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-cp .env.example .env
-
-# Add your Gemini API key to .env
-
-uvicorn main:app --reload
+python -m pytest tests/test_orchestrator.py -v
 ```
 
-Then open:
+### 10.3. Run Worker Tests
 
-```text
-http://127.0.0.1:8000/docs
+```bash
+python -m pytest tests/test_worker_agent.py -v
 ```
 
----
+### 10.4. Run Reviewer Tests
 
-# Environment Configuration
-
-The application requires a Google Gemini API key.
-
-The `.env` file should contain:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
+```bash
+python -m pytest tests/test_reviewer_agent.py -v
 ```
 
-## Important Security Requirement
+### 10.5. Run Workflow API Tests
 
-Do **not** commit your real `.env` file or Gemini API key to GitHub.
+```bash
+python -m pytest tests/test_workflow_routes.py -v
+```
 
-The `.gitignore` file should exclude:
+### 10.6. Test Coverage
 
-```text
+The automated tests evaluate:
+
+- Agent communication and routing.
+- Successful workflow completion.
+- Workflow identifier generation.
+- Message history.
+- Worker execution.
+- Reviewer approval and revision behaviour.
+- Invalid receiver handling.
+- Agent exceptions.
+- Maximum iteration guardrails.
+- FastAPI workflow request validation.
+- Existing task-management and single-agent functionality.
+
+The project has demonstrated successful automated testing, including Orchestrator tests and a complete backend integration run.
+
+Tests using mocked agent or model responses help avoid unpredictable live Gemini responses during automated regression testing.
+
+## 11. Failure Handling and Resilience
+
+### 11.1. Input Validation
+
+FastAPI validates incoming requests before starting the workflow.
+
+Invalid requests, including empty or malformed task input, are rejected.
+
+### 11.2. Structured Error Responses
+
+The system provides structured responses for different failure conditions.
+
+| Error | Description |
+|---|---|
+| `agent_error` | An unexpected agent exception occurs |
+| `execution_failed` | Worker execution cannot complete |
+| `routing_error` | A message has an unsupported receiver |
+| `max_iterations_exceeded` | The workflow reaches its iteration limit |
+
+### 11.3. Iteration and Revision Limits
+
+The Orchestrator enforces execution limits to prevent endless feedback cycles.
+
+The workflow API in the reviewed implementation configures a maximum of five iterations.
+
+Revision handling is also bounded to prevent repeated processing without a defined stopping condition.
+
+### 11.4. Reviewer Validation
+
+The Reviewer evaluates the generated results and may request changes when the output does not meet its quality criteria.
+
+Malformed or unsuccessful AI review responses are handled through the application's validation and error-handling logic rather than being treated as automatically approved.
+
+### 11.5. Logging
+
+Python logging records:
+
+- Workflow identifiers.
+- Agent activity.
+- Message routing.
+- Execution progress.
+- Review decisions.
+- Exceptions and failures.
+
+These logs support debugging, evaluation and traceability.
+
+## 12. Evaluation and Results
+
+### 12.1. Successful Workflow
+
+A live integration test was performed using a seven-day university study timetable request.
+
+The workflow completed successfully, demonstrating communication between the React frontend, FastAPI backend, Orchestrator and three specialised agents.
+
+The Worker processed four subtasks using Gemini, and the Reviewer approved the final output.
+
+### 12.2. Variable AI Responses
+
+During development, a test expected exactly four communication messages.
+
+However, additional review interactions caused the workflow to record six messages and reach its configured iteration limit.
+
+This exposed the unreliability of fixed-message-count assumptions when live AI responses can vary.
+
+The automated tests were improved through mocked agent responses, allowing predictable approval and revision scenarios to be evaluated independently.
+
+### 12.3. Invalid Receiver Handling
+
+The Orchestrator was tested using an unsupported message receiver.
+
+The `test_invalid_receiver_returns_routing_error` test verified that the system returned a structured routing error instead of continuing through an invalid communication path.
+
+### 12.4. Output Quality
+
+Although the live workflow was approved, manual evaluation identified inconsistencies in some study-hour calculations.
+
+This highlights an important limitation: AI-assisted review improves quality control but does not guarantee factual or numerical correctness.
+
+## 13. Limitations
+
+The current implementation has several limitations:
+
+- AI-generated content can contain inaccuracies.
+- Reviewer decisions may vary between executions.
+- External Gemini requests require network connectivity and available API quota.
+- Structured errors do not provide a complete offline fallback.
+- Comprehensive timeout, retry and alternative-model fallback mechanisms have not been established by the available testing evidence.
+- Workflow iteration limits may stop tasks that require several revision cycles.
+- Earlier task-management functionality uses in-memory storage.
+
+These limitations should be considered when evaluating reliability and potential production deployment.
+
+## 14. Future Improvements
+
+Potential future improvements include:
+
+- Persistent database storage.
+- Improved frontend responsiveness.
+- More detailed workflow analytics.
+- Deterministic checks for calculations and structured outputs.
+- Configurable workflow iteration limits.
+- Improved retry and timeout management.
+- Alternative-model fallback support.
+- Additional Planner Agent unit tests.
+- Enhanced reviewer feedback and revision quality.
+- User authentication and workflow history.
+- Cloud deployment and monitoring.
+
+## 15. Security Considerations
+
+The application uses environment variables to configure Gemini credentials.
+
+The `.env` file must not be committed to GitHub.
+
+The `.gitignore` should exclude:
+
+```gitignore
 .env
 .venv/
+venv/
 __pycache__/
 .pytest_cache/
+frontend/node_modules/
+frontend/dist/
 ```
 
-Only `.env.example` should be committed.
+Only a placeholder `.env.example` should be included in the repository.
 
-A safe `.env.example` file should contain:
+If an API key is accidentally exposed, it should be revoked and replaced.
 
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-```
+## 16. Troubleshooting
 
----
+### Backend Does Not Start
 
-# Troubleshooting
-
-## Gemini API Key Missing
-
-If the application reports:
-
-```text
-GEMINI_API_KEY is missing from the environment
-```
-
-check that:
-
-1. A `.env` file exists in the project root.
-2. The variable is named exactly `GEMINI_API_KEY`.
-3. The placeholder has been replaced with a valid API key.
-4. Uvicorn has been restarted after changing `.env`.
-
----
-
-## Module Not Found
-
-If Python reports that a module cannot be found, confirm that the virtual environment is activated.
-
-Then run:
+Check that the Python virtual environment is activated and dependencies are installed:
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+### Gemini API Error
 
-## Port 8000 Already in Use
+Confirm that:
 
-If port `8000` is already being used, stop the existing process or start the application using another port:
+- The `.env` file exists.
+- `GEMINI_API_KEY` is configured correctly.
+- The API key is valid.
+- The Gemini service is accessible.
+- The configured model is available to the API key.
 
-```bash
-uvicorn main:app --reload --port 8001
-```
+### Frontend Does Not Start
 
-Then open:
-
-```text
-http://127.0.0.1:8001/docs
-```
-
----
-
-## Virtual Environment Is Not Active
-
-On Windows PowerShell, the terminal normally begins with:
-
-```text
-(.venv) PS ...
-```
-
-On macOS, it normally begins with:
-
-```text
-(.venv) ...
-```
-
-If `(.venv)` is not displayed, activate the environment again before running the application.
-
----
-
-# Testing
-
-The project uses **pytest** for automated testing.
-
-Run the complete test suite with:
+From the `frontend` directory, run:
 
 ```bash
-pytest -v
+npm ci
+npm run dev
 ```
 
-The completed test suite produced:
+### Port Already in Use
 
-```text
-51 passed, 3 warnings
+Start FastAPI on a different port if required:
+
+```bash
+python -m uvicorn main:app --reload --port 8001
 ```
 
-The warnings are deprecation warnings and do not represent test failures.
+If changing the backend port, update the frontend API configuration accordingly.
 
----
+### Tests Fail Unexpectedly
 
-## Test Coverage
+Run:
 
-The tests cover:
-
-- Task model validation
-- Task service CRUD operations
-- FastAPI CRUD endpoints
-- Agent state
-- LangChain task lookup tool
-- Due-date validation
-- Priority-based fallback logic
-- LLM response extraction
-- Due Date Agent behaviour
-- FastAPI agent endpoint
-- Invalid API input
-- Missing tasks
-- Invalid LLM responses
-- Empty LLM responses
-- LLM exceptions
-- Agent fallback behaviour
-- State updates
-
----
-
-## Mocked LLM Testing
-
-Automated tests do not depend on real Gemini responses.
-
-The Gemini/LangChain call is mocked using pytest `monkeypatch`.
-
-Example:
-
-```python
-def mock_invoke(data):
-    return AIMessage(content=future_date)
-
-monkeypatch.setattr(
-    due_date_agent.due_date_chain,
-    "invoke",
-    mock_invoke
-)
+```bash
+python -m pytest -v
 ```
 
-This allows agent behaviour to be tested without:
+Check whether the failure involves live AI responses, incorrect test expectations, missing dependencies or configuration issues.
 
-- Making real Gemini API calls
-- Depending on network connectivity
-- Consuming API quota
-- Receiving unpredictable LLM responses
+For reliable automated tests, use mocked model responses rather than depending on live Gemini output.
 
----
+## 17. AI Assistance Declaration
 
-# Failure Testing
+Generative AI tools were used as supporting resources during project development, including technical explanation, code review, debugging, testing assistance and documentation preparation.
 
-The agent was deliberately tested against several failure scenarios.
+AI-generated suggestions were reviewed and adapted during implementation. The system was evaluated through automated testing, API execution, agent communication logs and frontend integration testing.
 
-## Invalid LLM Output
+The project demonstrates the implementation of a coordinated multi-agent architecture using FastAPI, Google Gemini, structured communication, workflow orchestration, validation and testing.
 
-Example mocked output:
+## 18. Author
 
-```text
-next Friday
-```
-
-Result:
-
-```text
-Validation failed
-→ fallback date generated
-→ agent continued successfully
-```
-
----
-
-## Empty LLM Output
-
-Example:
-
-```text
-""
-```
-
-Result:
-
-```text
-Empty response rejected
-→ fallback date generated
-```
-
----
-
-## LLM Exception
-
-Example simulated error:
-
-```python
-raise RuntimeError("Mock Gemini failure")
-```
-
-Result:
-
-```text
-Exception recorded
-→ AgentState updated
-→ fallback date generated
-→ application continued
-```
-
-These tests demonstrate that the application does not rely on the LLM always returning a valid response.
-
----
-
-# Logging and Observability
-
-Logging is used throughout the application to make agent execution observable.
-
-Example log sequence:
-
-```text
-Due date request received
-Agent state before run
-Due date agent started
-lookup_task called
-Raw Gemini output received
-Valid due date accepted
-Final due date suggestion
-Agent state after run
-Agent endpoint returning due date
-```
-
-Errors and fallback decisions are also logged.
-
-This helps with debugging and evaluating agent behaviour.
-
----
-
-# Limitations
-
-The current version has several limitations.
-
-## In-Memory Storage
-
-Tasks and agent state are stored in memory.
-
-Restarting the application clears stored data.
-
-This means that if a task is created and the Uvicorn server is restarted, the task must be created again before its `task_id` can be used by the Due Date Agent.
-
----
-
-## Simple Fallback Strategy
-
-Fallback dates are based only on priority and do not consider:
-
-- Weekends
-- Public holidays
-- User workload
-- Calendar availability
-- Actual assignment deadlines
-
----
-
-## LLM Date Suitability
-
-Validation ensures that the output is correctly formatted and not in the past, but it cannot guarantee that every AI-generated date is the ideal deadline.
-
----
-
-## Tool Selection
-
-The `lookup_task` tool is called by the application when a `task_id` is supplied.
-
-The LLM does not currently autonomously decide when the tool should be called.
-
----
-
-# Future Improvements
-
-Possible future improvements include:
-
-- Persistent database storage
-- Per-user agent state
-- Calendar integration
-- Workload-aware due-date suggestions
-- Structured LLM output
-- Additional LangChain tools
-- Autonomous tool selection
-- More advanced scheduling rules
-- Additional integration tests
-- Deployment to a cloud environment
-
----
-
-# Security
-
-The Gemini API key is stored using an environment variable and is not hard-coded into the application.
-
-Never commit:
-
-```text
-.env
-```
-
-to the repository.
-
-If an API key is accidentally committed or publicly exposed, it should be revoked and replaced immediately.
-
----
-
-# AI Assistance Declaration
-
-Generative AI tools were used during the development of this assignment as a supporting resource for understanding technical concepts, troubleshooting implementation issues, reviewing code structure, improving documentation, and assisting with the testing and development process.
-
-AI-generated suggestions were reviewed, tested, and adapted before being incorporated into the project. The final implementation was developed and verified through the FastAPI application, LangChain-based Due Date Agent, Google Gemini integration, agent state management, tool usage, validation and fallback mechanisms, logging, and automated testing using pytest. Git and GitHub were used throughout the development process to maintain version history and document incremental changes.
-
-The final application reflects my understanding of the implemented architecture, FastAPI endpoint integration, LangChain and LLM integration, agent state management, tool usage, input and output validation, fallback and error handling, logging, and automated testing. All final implementation decisions, testing results, and submitted work were reviewed and verified by me.
-
----
-
-# Author
-
-**Prajita Bhandari**
+**Prajita Bhandari**  
