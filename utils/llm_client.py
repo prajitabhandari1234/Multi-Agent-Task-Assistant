@@ -1,61 +1,64 @@
-# Import os so environment variables can be accessed
+
+import logging
 import os
 
-# Load variables stored in the .env file
 from dotenv import load_dotenv
-
-# Import the Google GenAI library for direct Gemini API communication
 from google import genai
-
-# Import the LangChain wrapper for Google Gemini models
+from google.genai import types
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-
-# Load environment variables from the .env file
+# Load environment variables.
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 
-# Read the Gemini API key from the environment
-# Keeping the API key in .env prevents it from being hard-coded in the source code
-api_key = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 
+# Timeout in seconds.
+GEMINI_TIMEOUT_SECONDS = 30
 
-# Check that the API key exists before creating the Gemini clients
-if not api_key:
-    raise ValueError(
-        "GEMINI_API_KEY is missing from the environment."
-    )
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY is missing from the environment.")
 
-
-# Create the standard Google GenAI client
-# This client is used when Gemini is called directly without LangChain
-client = genai.Client(api_key=api_key)
+# Google GenAI SDK accepts HTTP timeout in milliseconds.
+client = genai.Client(
+    api_key=GEMINI_API_KEY,
+    http_options=types.HttpOptions(
+        timeout=GEMINI_TIMEOUT_SECONDS * 1000,
+    ),
+)
 
 
 def generate_response(prompt: str) -> str:
     """
-    Send a text prompt directly to Gemini and return the generated response.
-
-    Args:
-        prompt: The text instruction that will be sent to Gemini.
-
-    Returns:
-        The generated response as a cleaned string.
+    Send a prompt to Gemini with timeout handling,
+    output validation, and error logging.
     """
 
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError("Gemini prompt must be a non-empty string.")
+
     try:
-        # Send the supplied prompt to the Gemini model
+        logger.info("Sending request to Gemini.")
+
         response = client.models.generate_content(
-            model="gemini-3.7-flash",
-            contents=prompt
+            model=GEMINI_MODEL,
+            contents=prompt.strip(),
         )
 
-        # Remove unnecessary whitespace before returning the response
-        return response.text.strip()
+        response_text = getattr(response, "text", None)
+
+        if not isinstance(response_text, str) or not response_text.strip():
+            raise ValueError("Gemini returned an empty or invalid response.")
+
+        logger.info("Gemini response received successfully.")
+
+        return response_text.strip()
 
     except Exception as error:
-        # Convert Gemini/API errors into a clear application-level error
-        # This allows the agent layer to handle the failure later
+        logger.exception("Gemini request failed.")
+
         raise RuntimeError(
             f"Gemini request failed: {error}"
         ) from error
@@ -63,17 +66,13 @@ def generate_response(prompt: str) -> str:
 
 def get_langchain_model():
     """
-    Create and return a Gemini chat model configured for LangChain.
-
-    This model will be used by the task assistant agent when working
-    with LangChain prompt templates, chains, and tools.
+    Create a LangChain Gemini model for the
+    existing single-agent task assistant.
     """
 
-    # Create the Gemini model through LangChain
-    # temperature=0 is used to make responses more consistent
-    # for structured task-management suggestions
     return ChatGoogleGenerativeAI(
-        model="gemini-3.7-flash",
+        model=GEMINI_MODEL,
         temperature=0,
-        google_api_key=api_key
+        google_api_key=GEMINI_API_KEY,
+        timeout=GEMINI_TIMEOUT_SECONDS,
     )
