@@ -2,128 +2,148 @@
 
 **COIT12204 – AI-Assisted Software Development**  
 **Assessment 4: Multi-Agent System**  
-**Developed by:** Prajita Bhandari
+**Developed by:** Prajita Bhandari  
+**CQUniversity Australia**
 
 ## 1. Project Overview
 
-The Multi-Agent Task Assistant is an AI-powered task management application developed using Python, FastAPI, LangChain, Google Gemini and React.
+The Multi-Agent Task Assistant is an AI-assisted task management and workflow application developed using Python, FastAPI, Google Gemini and React.
 
-The project extends the Single-Agent Task Assistant developed for Assessment 3 by introducing a collaborative multi-agent architecture. Three specialised AI agents—Planner, Worker and Reviewer—work together under the supervision of an Orchestrator to process user requests.
+The project extends the Single-Agent Task Assistant developed for Assessment 3 by introducing a collaborative multi-agent architecture. Three specialised agents—Planner, Worker and Reviewer—work under the coordination of a central Orchestrator to process user requests.
 
-The Planner divides a task into subtasks, the Worker executes those subtasks using Google Gemini, and the Reviewer evaluates the generated output. If improvements are required, the Reviewer can request revisions before the workflow finishes.
+The Planner uses rule-based task analysis to divide a request into subtasks. The Worker uses Google Gemini to execute those subtasks, while the Reviewer evaluates the generated results and determines whether they should be approved or revised.
 
-The application provides a React-based user interface for submitting tasks, viewing generated results and inspecting communication between agents.
+The application includes a React-based frontend for submitting tasks, viewing generated results, monitoring workflow execution and inspecting communication between agents.
+
+The system demonstrates structured message passing, agent specialisation, workflow orchestration, AI integration, feedback cycles, validation, logging and automated testing.
 
 ## 2. Project Objectives
 
-The main objectives of this project are to:
+The main objectives of the project are to:
 
 - Implement a multi-agent system with three specialised agents.
-- Coordinate agent execution through a central Orchestrator.
-- Support structured communication between agents.
-- Integrate Google Gemini for AI-assisted task planning, execution and review.
-- Implement feedback and revision cycles.
-- Apply input validation, exception handling and workflow guardrails.
-- Provide a user-friendly React interface.
-- Evaluate system behaviour through automated testing and live integration testing.
+- Coordinate execution through a central Orchestrator.
+- Support structured agent-to-agent communication.
+- Use rule-based planning to generate task-specific subtasks.
+- Integrate Google Gemini for AI-assisted execution and output review.
+- Implement Reviewer feedback and revision cycles.
+- Enforce iteration and revision limits.
+- Apply input validation, API timeout handling and structured error responses.
+- Maintain workflow identifiers, execution records and communication history.
+- Provide a React-based interface for user interaction.
+- Evaluate system behaviour through automated testing and live workflow execution.
 
 ## 3. Technology Stack
 
 | Technology | Purpose |
 |---|---|
-| Python 3.11 | Backend programming |
-| FastAPI | REST API development |
+| Python 3.11 | Backend development |
+| FastAPI | REST API framework |
 | Pydantic | Data modelling and input validation |
-| Google Gemini | AI-generated planning, execution and review |
-| LangChain | AI integration for the retained single-agent functionality |
+| Google Gemini | AI-assisted subtask execution and output review |
+| Google GenAI SDK | Direct Gemini API communication |
+| LangChain | Integration for the retained single-agent functionality |
 | React | Frontend user interface |
-| Vite | Frontend development and build tool |
+| Vite | Frontend development and build tooling |
 | JavaScript | Frontend application logic |
 | Uvicorn | ASGI application server |
 | Pytest | Automated testing |
-| HTTPX | HTTP requests and API testing |
-| Python logging | Workflow monitoring and debugging |
+| HTTPX | HTTP communication and API testing |
+| Python logging | Execution monitoring and debugging |
 | Git and GitHub | Version control |
 
 ## 4. Key Features
 
-### 4.1. Multi-Agent Collaboration
+### 4.1. Planner Agent
 
-The application implements three specialised agents that perform different responsibilities.
+**File:** `agents/planner_agent.py`
 
-**Planner Agent**
+The Planner Agent analyses incoming user requests and produces structured subtasks.
 
-- Receives the user's task.
-- Analyses the task requirements.
-- Generates structured subtasks.
-- Sends execution instructions to the Worker.
+Responsibilities include:
 
-**Worker Agent**
+- Receiving the original user task.
+- Identifying relevant task categories using rule-based logic.
+- Dividing the task into manageable subtasks.
+- Maintaining the original task requirements.
+- Preparing structured instructions for the Worker Agent.
 
-- Receives subtasks from the Planner.
-- Uses Google Gemini to generate responses.
-- Processes subtasks and combines their results.
-- Sends the generated output to the Reviewer.
-- Supports revisions when requested.
+The Planner uses predefined planning logic rather than calling Gemini directly.
 
-**Reviewer Agent**
+### 4.2. Worker Agent
 
-- Evaluates the Worker's generated output.
-- Checks response structure and quality.
-- Approves acceptable results.
-- Requests revisions when improvements are necessary.
-- Returns review decisions to the Orchestrator.
+**File:** `agents/worker_agent.py`
 
-### 4.2. Orchestrator
+The Worker Agent executes subtasks generated by the Planner.
 
-The Orchestrator manages the overall workflow and coordinates communication between agents.
+Responsibilities include:
 
-Its responsibilities include:
+- Receiving structured subtasks.
+- Calling Google Gemini to generate content.
+- Processing subtasks sequentially.
+- Sharing completed results as context for later subtasks.
+- Maintaining consistency between outputs.
+- Responding to Reviewer feedback.
+- Supporting revised execution.
+- Validating generated responses.
+- Logging execution progress and failures.
 
-- Initialising workflows.
+The Worker combines individual subtask results into a structured draft for review.
+
+### 4.3. Reviewer Agent
+
+**File:** `agents/reviewer_agent.py`
+
+The Reviewer Agent evaluates the quality of the Worker's output.
+
+Responsibilities include:
+
+- Receiving generated results.
+- Performing structural validation.
+- Evaluating output quality using Gemini.
+- Checking completeness, consistency and relevance.
+- Approving acceptable results.
+- Requesting revisions when improvements are required.
+- Providing feedback for subsequent Worker execution.
+
+The Reviewer improves quality control but does not guarantee that every generated statement or calculation is correct.
+
+### 4.4. Orchestrator
+
+**File:** `orchestration/orchestrator.py`
+
+The Orchestrator coordinates the complete multi-agent workflow.
+
+Responsibilities include:
+
+- Starting workflow execution.
 - Routing messages between agents.
 - Maintaining workflow identifiers.
-- Recording message history.
-- Tracking execution steps and revisions.
-- Enforcing maximum iteration and revision limits.
-- Handling invalid routing and agent errors.
-- Returning the final workflow response.
+- Tracking execution steps and revision counts.
+- Recording communication history.
+- Validating supported message routes.
+- Enforcing iteration and revision limits.
+- Handling agent failures.
+- Returning structured workflow results.
 
-### 4.3. Structured Agent Communication
+The Orchestrator ensures that communication follows the defined workflow.
 
-Agents exchange information using the `AgentMessage` model.
+### 4.5. React Frontend
 
-Each message includes:
+**Directory:** `frontend/`
 
-- `sender` – Component sending the message.
-- `receiver` – Intended destination.
-- `intent` – Purpose of the message.
-- `content` – Task instructions, generated results or review feedback.
-- `constraints` – Additional workflow requirements.
+The frontend allows users to interact with the multi-agent system.
 
-The structured communication model improves consistency, traceability and coordination.
+Features include:
 
-### 4.4. Feedback and Revision
-
-The Reviewer can approve the Worker's output or request improvements.
-
-When a revision is required, the Orchestrator routes the feedback to the Worker for further processing.
-
-Execution and revision limits prevent unlimited communication cycles.
-
-### 4.5. React User Interface
-
-The frontend provides:
-
-- A task submission interface.
-- Workflow execution status.
+- Natural-language task submission.
+- Workflow execution results.
 - Planner-generated subtasks.
-- Worker-generated results.
-- Reviewer approval information.
-- Final AI-generated output.
+- Worker-generated content.
+- Reviewer approval status.
 - Workflow step and revision counts.
 - Agent communication history.
-- A visual summary of the multi-agent architecture.
+- Multi-agent architecture visualisation.
 
 ## 5. Project Structure
 
@@ -172,6 +192,7 @@ Multi-Agent-Task-Assistant/
 │   ├── test_task_model.py
 │   ├── test_task_service.py
 │   ├── test_worker_agent.py
+│   ├── test_workflow_revision.py
 │   └── test_workflow_routes.py
 │
 ├── frontend/
@@ -182,7 +203,6 @@ Multi-Agent-Task-Assistant/
 │   ├── package-lock.json
 │   └── vite.config.js
 │
-├── docs/
 ├── .env.example
 ├── .gitignore
 ├── main.py
@@ -190,62 +210,75 @@ Multi-Agent-Task-Assistant/
 └── requirements.txt
 ```
 
-The project retains the earlier task-management and Due Date Agent components from Assessment 3. These remain part of the application alongside the new multi-agent functionality.
+The project retains the task-management and Due Date Agent functionality developed for Assessment 3. These components remain available alongside the multi-agent workflow.
 
-## 6. Multi-Agent System Architecture
+## 6. Multi-Agent Architecture
 
-The workflow follows a centralised orchestration architecture.
+The application follows a centralised orchestration architecture.
 
 ```text
-                  USER
-                    |
-                    v
-              React Frontend
-                    |
-                    v
-              FastAPI Backend
-                    |
-                    v
-               Orchestrator
-                    |
-                    v
-               Planner Agent
-                    |
-                    | Planned Subtasks
-                    v
-                Worker Agent
-                    |
-                    | Execution Results
-                    v
-               Reviewer Agent
-                    |
-          +---------+----------+
-          |                    |
-       Approved           Revision Required
-          |                    |
-          v                    v
-     Orchestrator          Worker Agent
-          |                    |
-          |                    |
-          |             Revised Output
-          |                    |
-          |                    v
-          |               Reviewer Agent
-          |                    |
-          +--------------------+
-                    |
-                    v
-              Final Response
-                    |
-                    v
-               React Frontend
+                      USER
+                        |
+                        v
+                  React Frontend
+                        |
+                        v
+                  FastAPI Backend
+                        |
+                        v
+                   Orchestrator
+                        |
+                        v
+                   Planner Agent
+                        |
+                        | execute_subtasks
+                        v
+                    Worker Agent
+                        |
+                        | execution_result
+                        v
+                   Reviewer Agent
+                        |
+              +---------+---------+
+              |                   |
+           Approved        Revision Required
+              |                   |
+              v                   v
+         Orchestrator         Worker Agent
+              |                   |
+              |              Revised Output
+              |                   |
+              |                   v
+              |              Reviewer Agent
+              |                   |
+              +-------------------+
+                        |
+                        v
+                  Final Response
+                        |
+                        v
+                   React Frontend
 ```
 
-The Orchestrator controls communication and prevents agents from exchanging messages outside the supported workflow routes.
+The Orchestrator controls message routing, workflow state and termination conditions.
 
-## 7. Agent Communication Workflow
+## 7. Agent Communication Protocol
 
-A successful workflow generally involves four communication steps.
+Agents communicate using a structured Pydantic model.
+
+**File:** `models/agent_message.py`
+
+The `AgentMessage` model contains:
+
+| Field | Description |
+|---|---|
+| `sender` | Component sending the message |
+| `receiver` | Intended message destination |
+| `intent` | Purpose of the communication |
+| `content` | Task instructions, results or feedback |
+| `constraints` | Additional workflow requirements |
+
+### 7.1. Successful Workflow Communication
 
 | Step | Sender | Receiver | Intent |
 |---|---|---|---|
@@ -254,39 +287,73 @@ A successful workflow generally involves four communication steps.
 | 3 | Worker | Reviewer | `execution_result` |
 | 4 | Reviewer | Orchestrator | `review_approved` |
 
-If the Reviewer requests a revision, additional communication steps occur.
+If the Reviewer identifies problems, it can send a `revision_required` message that the Orchestrator routes back to the Worker.
 
-### Example Task
+The Worker then processes the feedback and submits revised results for another review.
 
-A user may submit:
+### 7.2. Workflow State
+
+The Orchestrator maintains:
+
+- Workflow ID.
+- Current execution step.
+- Revision count.
+- Agent communication history.
+- Workflow status.
+- Final result or structured error information.
+
+These records support debugging, evaluation and traceability.
+
+## 8. Example Workflow
+
+### User Request
 
 > Create a seven-day study timetable for a university student studying Python, Database Systems and Networking. Include daily study sessions, revision and breaks.
 
-The Planner divides the task into four subtasks, the Worker generates the requested content, and the Reviewer evaluates the results.
+### Planner Output
 
-In a successful live integration test, the application recorded:
+The Planner generates four subtasks:
 
-- Workflow steps: 4
-- Revisions: 0
-- Communication messages: 4
-- Reviewer decision: Approved
-- HTTP response: 200 OK
+1. Identify subjects, topics and learning goals.
+2. Prioritise topics based on difficulty and deadlines.
+3. Allocate study sessions across available days.
+4. Include breaks, revision and progress checks.
 
-These values describe the demonstrated successful run, not a guarantee that every task will complete in four steps.
+### Worker Execution
 
-## 8. API Endpoints
+The Worker sends the planned subtasks to Gemini and generates structured responses.
 
-The application exposes the multi-agent workflow through FastAPI.
+Earlier completed results are provided as context for subsequent subtasks to improve consistency.
 
-### 8.1. Run Multi-Agent Workflow
+### Reviewer Evaluation
 
-**Endpoint**
+The Reviewer evaluates the generated output and either approves it or requests improvements.
+
+### Recorded Successful Execution
+
+A successful live integration run demonstrated:
+
+| Metric | Result |
+|---|---|
+| Workflow status | Approved |
+| Workflow steps | 4 |
+| Revisions | 0 |
+| Communication messages | 4 |
+| API response | HTTP 200 OK |
+
+These results represent one demonstrated successful execution. Other requests may require revisions or additional steps.
+
+## 9. API Endpoints
+
+### 9.1. Multi-Agent Workflow
+
+**Endpoint:**
 
 ```http
 POST /api/workflow/run
 ```
 
-**Example request**
+**Example JSON request:**
 
 ```json
 {
@@ -294,51 +361,47 @@ POST /api/workflow/run
 }
 ```
 
-The endpoint accepts a natural-language task and initiates the multi-agent workflow.
+The endpoint starts the workflow and returns execution information, generated results and agent communication history.
 
-The response includes workflow information such as the execution status, workflow identifier, step count, revision count, generated output and communication history.
+### 9.2. FastAPI Documentation
 
-### 8.2. Swagger Documentation
-
-FastAPI provides interactive API documentation at:
+Interactive API documentation is available at:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-The documentation allows users to inspect endpoints, submit test requests and examine API responses.
+### 9.3. Existing Single-Agent Functionality
 
-### 8.3. Existing Task Management
-
-The project also retains the original task-management functionality from Assessment 3, including task creation, retrieval, updating, deletion and AI-assisted due-date suggestions.
-
-The Due Date Agent endpoint is:
+The application retains the Due Date Agent endpoint:
 
 ```http
 POST /api/agent/suggest_due_date
 ```
 
-## 9. Installation and Setup
+It also retains the task-management API for creating, retrieving, updating and deleting tasks.
 
-### 9.1. Prerequisites
+## 10. Installation and Setup
 
-Before running the application, install:
+### 10.1. Prerequisites
+
+Install:
 
 - Python 3.11 or a compatible version.
 - Node.js and npm.
 - Git.
-- Visual Studio Code or another code editor.
-- A Google Gemini API key.
-- An internet connection for live AI requests.
+- A code editor such as Visual Studio Code.
+- A valid Google Gemini API key.
+- Internet connectivity for Gemini requests.
 
-### 9.2. Clone the Repository
+### 10.2. Clone the Repository
 
 ```bash
 git clone https://github.com/prajitabhandari1234/Multi-Agent-Task-Assistant.git
 cd Multi-Agent-Task-Assistant
 ```
 
-### 9.3. Create a Python Virtual Environment
+### 10.3. Create a Virtual Environment
 
 **Windows PowerShell**
 
@@ -347,7 +410,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-If PowerShell blocks activation:
+If activation is restricted:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -361,14 +424,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 9.4. Install Backend Dependencies
+### 10.4. Install Backend Dependencies
 
 ```bash
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-### 9.5. Configure Environment Variables
+### 10.5. Configure Environment Variables
 
 Create a `.env` file in the project root.
 
@@ -384,64 +447,67 @@ Copy-Item .env.example .env
 cp .env.example .env
 ```
 
-Open `.env` and configure the Gemini API key:
+Configure the Gemini API key:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.7-flash
 ```
 
-Replace the placeholder with a valid API key.
+Replace the placeholder with your valid Gemini API key.
 
-Never upload a real API key to GitHub.
+The model setting is configurable in the updated Gemini client. Use a model identifier supported by your API account.
 
-### 9.6. Start the Backend
+Never commit your real API key to GitHub.
 
-From the project root, run:
+### 10.6. Start the Backend
+
+From the project root:
 
 ```bash
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-The backend will be available at:
+Backend address:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-API documentation:
+Swagger documentation:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-### 9.7. Install Frontend Dependencies
+### 10.7. Install Frontend Dependencies
 
-Open a second terminal:
+Open another terminal:
 
 ```bash
 cd frontend
 npm ci
 ```
 
-### 9.8. Start the Frontend
+### 10.8. Start the Frontend
 
 ```bash
 npm run dev
 ```
 
-Open the local address displayed by Vite, typically:
+Open the address displayed by Vite, typically:
 
 ```text
 http://localhost:5173
 ```
 
-The backend and frontend should run simultaneously in separate terminals.
+Keep both backend and frontend terminals running.
 
-## 10. Testing
+## 11. Testing
 
-The project uses Pytest to verify application functionality, agent behaviour and workflow reliability.
+The project uses Pytest to evaluate agent behaviour, communication, API validation and workflow resilience.
 
-### 10.1. Run All Tests
+### 11.1. Run All Tests
 
 From the project root:
 
@@ -449,165 +515,243 @@ From the project root:
 python -m pytest -v
 ```
 
-### 10.2. Run Orchestrator Tests
+### 11.2. Run Individual Test Modules
+
+**Orchestrator tests**
 
 ```bash
 python -m pytest tests/test_orchestrator.py -v
 ```
 
-### 10.3. Run Worker Tests
+**Worker Agent tests**
 
 ```bash
 python -m pytest tests/test_worker_agent.py -v
 ```
 
-### 10.4. Run Reviewer Tests
+**Reviewer Agent tests**
 
 ```bash
 python -m pytest tests/test_reviewer_agent.py -v
 ```
 
-### 10.5. Run Workflow API Tests
+**Workflow revision tests**
+
+```bash
+python -m pytest tests/test_workflow_revision.py -v
+```
+
+**Workflow API tests**
 
 ```bash
 python -m pytest tests/test_workflow_routes.py -v
 ```
 
-### 10.6. Test Coverage
+### 11.3. Test Coverage
 
-The automated tests evaluate:
+The automated tests cover:
 
-- Agent communication and routing.
-- Successful workflow completion.
-- Workflow identifier generation.
-- Message history.
-- Worker execution.
+- Agent message routing.
+- Successful workflow execution.
+- Workflow identifiers and message history.
+- Worker subtask execution.
 - Reviewer approval and revision behaviour.
 - Invalid receiver handling.
 - Agent exceptions.
-- Maximum iteration guardrails.
-- FastAPI workflow request validation.
-- Existing task-management and single-agent functionality.
+- Maximum iteration limits.
+- Workflow request validation.
+- Existing task-management functionality.
+- Single-agent due-date functionality.
 
-The project has demonstrated successful automated testing, including Orchestrator tests and a complete backend integration run.
+### 11.4. Recorded Test Results
 
-Tests using mocked agent or model responses help avoid unpredictable live Gemini responses during automated regression testing.
+The latest recorded complete test execution produced:
 
-## 11. Failure Handling and Resilience
+```text
+96 passed, 3 warnings
+```
 
-### 11.1. Input Validation
+The warnings were associated with framework deprecations rather than failed assertions.
 
-FastAPI validates incoming requests before starting the workflow.
+This result reflects the recorded test run and should be updated after future code changes.
 
-Invalid requests, including empty or malformed task input, are rejected.
+Mocked AI responses are used in automated tests to improve repeatability and reduce dependence on live Gemini responses.
 
-### 11.2. Structured Error Responses
+## 12. Resilience and Guardrails
 
-The system provides structured responses for different failure conditions.
+### 12.1. Input Validation
+
+FastAPI validates incoming workflow requests before execution.
+
+Invalid input, including empty or malformed tasks, is rejected.
+
+The Worker also validates task content and planned subtasks before generating results.
+
+### 12.2. Iteration and Revision Limits
+
+The reviewed workflow API configures:
+
+- Maximum iterations: 10.
+- Maximum revisions: 2.
+
+These limits prevent uncontrolled execution and repeated feedback cycles.
+
+Individual tests may use lower limits to verify guardrail behaviour.
+
+When the iteration limit is reached, the Orchestrator returns a structured `max_iterations_exceeded` response.
+
+### 12.3. Gemini API Timeout Handling
+
+**File:** `utils/llm_client.py`
+
+The application configures a 30-second timeout for Gemini API requests.
+
+The direct Google GenAI client uses HTTP timeout configuration, while the LangChain Gemini client also uses a 30-second timeout.
+
+The timeout reduces the risk of requests waiting indefinitely for an external AI response.
+
+API failures are logged and propagated as application-level exceptions so agents can handle unsuccessful requests.
+
+Dedicated timeout tests are still needed to verify behaviour under simulated delays.
+
+### 12.4. Structured Error Handling
+
+The application uses structured error responses.
 
 | Error | Description |
 |---|---|
 | `agent_error` | An unexpected agent exception occurs |
-| `execution_failed` | Worker execution cannot complete |
+| `execution_failed` | Worker execution fails |
 | `routing_error` | A message has an unsupported receiver |
 | `max_iterations_exceeded` | The workflow reaches its iteration limit |
 
-### 11.3. Iteration and Revision Limits
+These responses improve error visibility and debugging.
 
-The Orchestrator enforces execution limits to prevent endless feedback cycles.
+### 12.5. Reviewer Validation
 
-The workflow API in the reviewed implementation configures a maximum of five iterations.
+The Reviewer evaluates generated results and can request revisions when the output does not meet the required quality criteria.
 
-Revision handling is also bounded to prevent repeated processing without a defined stopping condition.
+Structural checks complement Gemini-assisted review.
 
-### 11.4. Reviewer Validation
+However, Reviewer approval does not guarantee numerical or factual accuracy.
 
-The Reviewer evaluates the generated results and may request changes when the output does not meet its quality criteria.
+### 12.6. Logging
 
-Malformed or unsuccessful AI review responses are handled through the application's validation and error-handling logic rather than being treated as automatically approved.
-
-### 11.5. Logging
-
-Python logging records:
+Python logging records workflow events, including:
 
 - Workflow identifiers.
-- Agent activity.
+- Agent communication.
 - Message routing.
-- Execution progress.
+- Execution steps.
+- Subtask completion.
 - Review decisions.
-- Exceptions and failures.
+- Exceptions and errors.
 
-These logs support debugging, evaluation and traceability.
+These records provide evidence for evaluation and troubleshooting.
 
-## 12. Evaluation and Results
+### 12.7. Fallback Limitations
 
-### 12.1. Successful Workflow
+The current implementation handles failures through structured error responses.
 
-A live integration test was performed using a seven-day university study timetable request.
+However, this does not provide a complete fallback mechanism.
 
-The workflow completed successfully, demonstrating communication between the React frontend, FastAPI backend, Orchestrator and three specialised agents.
+If Gemini execution fails, the Worker may return an `execution_failed` response rather than a completed result.
 
-The Worker processed four subtasks using Gemini, and the Reviewer approved the final output.
+Comprehensive offline fallback, bounded retries and alternative-model support remain future improvements.
 
-### 12.2. Variable AI Responses
+## 13. Evaluation and Failure Analysis
 
-During development, a test expected exactly four communication messages.
+### 13.1. Successful Integration
 
-However, additional review interactions caused the workflow to record six messages and reach its configured iteration limit.
+The system successfully demonstrated the complete multi-agent workflow through the React interface and FastAPI backend.
 
-This exposed the unreliability of fixed-message-count assumptions when live AI responses can vary.
+The Worker processed four subtasks, the Reviewer approved the output and the Orchestrator returned the final result.
 
-The automated tests were improved through mocked agent responses, allowing predictable approval and revision scenarios to be evaluated independently.
+### 13.2. Failure Case 1: Variable AI Responses
 
-### 12.3. Invalid Receiver Handling
+During development, an automated test expected four communication messages.
 
-The Orchestrator was tested using an unsupported message receiver.
+However, additional Reviewer interactions resulted in six recorded messages and caused the workflow to reach its configured test iteration limit.
 
-The `test_invalid_receiver_returns_routing_error` test verified that the system returned a structured routing error instead of continuing through an invalid communication path.
+This demonstrated that live AI review decisions can vary between executions.
 
-### 12.4. Output Quality
+The testing approach was improved through mocked agent responses, allowing approval and revision scenarios to be tested more predictably.
 
-Although the live workflow was approved, manual evaluation identified inconsistencies in some study-hour calculations.
+### 13.3. Failure Case 2: Invalid Receiver
 
-This highlights an important limitation: AI-assisted review improves quality control but does not guarantee factual or numerical correctness.
+The Orchestrator was tested with an unsupported message receiver.
 
-## 13. Limitations
+The test `test_invalid_receiver_returns_routing_error` verified that the system returned a structured `routing_error` instead of continuing through an unsupported route.
+
+This confirmed that the Orchestrator detects invalid routing conditions.
+
+### 13.4. Output Quality Limitations
+
+Manual inspection of a generated study timetable identified inconsistencies in some study-hour calculations despite Reviewer approval.
+
+This demonstrates that AI-assisted quality checks should be complemented by deterministic validation for numerical or scheduling tasks.
+
+## 14. Limitations
 
 The current implementation has several limitations:
 
-- AI-generated content can contain inaccuracies.
+- AI-generated responses can contain inaccurate information or calculations.
 - Reviewer decisions may vary between executions.
-- External Gemini requests require network connectivity and available API quota.
-- Structured errors do not provide a complete offline fallback.
-- Comprehensive timeout, retry and alternative-model fallback mechanisms have not been established by the available testing evidence.
-- Workflow iteration limits may stop tasks that require several revision cycles.
-- Earlier task-management functionality uses in-memory storage.
+- Gemini integration requires network access and available API quota.
+- A 30-second API timeout is configured, but dedicated timeout failure tests are still required.
+- Bounded retry policies and alternative-model fallback are not implemented.
+- Structured error handling does not provide complete offline fallback functionality.
+- Workflow iteration limits may stop tasks requiring several revision cycles.
+- The retained task-management functionality uses in-memory storage.
 
-These limitations should be considered when evaluating reliability and potential production deployment.
+These limitations should be considered before using the system in production environments.
 
-## 14. Future Improvements
+## 15. Future Improvements
 
-Potential future improvements include:
+Future development could focus on reliability, accuracy, scalability and usability.
 
-- Persistent database storage.
-- Improved frontend responsiveness.
-- More detailed workflow analytics.
-- Deterministic checks for calculations and structured outputs.
-- Configurable workflow iteration limits.
-- Improved retry and timeout management.
-- Alternative-model fallback support.
-- Additional Planner Agent unit tests.
-- Enhanced reviewer feedback and revision quality.
-- User authentication and workflow history.
-- Cloud deployment and monitoring.
+### 15.1. Deterministic Output Validation
 
-## 15. Security Considerations
+Python-based validation could verify numerical calculations, study-hour totals, break durations and overlapping sessions.
 
-The application uses environment variables to configure Gemini credentials.
+This would complement the Reviewer Agent and reduce the likelihood of inaccurate outputs being approved.
+
+### 15.2. Improved Failure Recovery
+
+Resilience could be strengthened through:
+
+- Automated timeout tests.
+- Bounded retry mechanisms.
+- Exponential backoff.
+- Preservation of completed subtasks when Gemini fails.
+- Alternative-model fallback strategies.
+- Selective re-execution of failed subtasks.
+
+These improvements could reduce unnecessary API calls and support more reliable workflow recovery.
+
+### 15.3. Workflow Scalability
+
+The Orchestrator could be enhanced with isolated workflow state, persistent execution history and configurable execution limits.
+
+These changes would support concurrent users and improve traceability.
+
+### 15.4. Frontend Improvements
+
+The React frontend could provide:
+
+- Clearer progress indicators.
+- Improved error messages.
+- More concise presentation of lengthy AI responses.
+- Downloadable workflow results.
+- Searchable workflow history.
+
+## 16. Security Considerations
+
+The application uses environment variables to configure Gemini API credentials.
 
 The `.env` file must not be committed to GitHub.
 
-The `.gitignore` should exclude:
+Recommended `.gitignore` entries:
 
 ```gitignore
 .env
@@ -619,50 +763,51 @@ frontend/node_modules/
 frontend/dist/
 ```
 
-Only a placeholder `.env.example` should be included in the repository.
+Only `.env.example`, containing placeholder values, should be included in the repository.
 
-If an API key is accidentally exposed, it should be revoked and replaced.
+If an API key is accidentally exposed, revoke it and generate a replacement.
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
-### Backend Does Not Start
+### 17.1. Backend Does Not Start
 
-Check that the Python virtual environment is activated and dependencies are installed:
+Verify that the virtual environment is activated and dependencies are installed.
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-### Gemini API Error
+### 17.2. Gemini API Errors
 
-Confirm that:
+Check that:
 
-- The `.env` file exists.
-- `GEMINI_API_KEY` is configured correctly.
-- The API key is valid.
-- The Gemini service is accessible.
-- The configured model is available to the API key.
+- `.env` exists.
+- `GEMINI_API_KEY` is configured.
+- The key is valid.
+- The model identifier is supported.
+- Internet connectivity is available.
+- API quota has not been exhausted.
 
-### Frontend Does Not Start
+### 17.3. Frontend Does Not Start
 
-From the `frontend` directory, run:
+From the frontend directory:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-### Port Already in Use
+### 17.4. Port Already in Use
 
-Start FastAPI on a different port if required:
+Run the backend on a different port:
 
 ```bash
 python -m uvicorn main:app --reload --port 8001
 ```
 
-If changing the backend port, update the frontend API configuration accordingly.
+Update the frontend API configuration if the backend port changes.
 
-### Tests Fail Unexpectedly
+### 17.5. Automated Test Failures
 
 Run:
 
@@ -670,18 +815,20 @@ Run:
 python -m pytest -v
 ```
 
-Check whether the failure involves live AI responses, incorrect test expectations, missing dependencies or configuration issues.
+Review the failure details and application logs.
 
-For reliable automated tests, use mocked model responses rather than depending on live Gemini output.
+Use mocked AI responses for repeatable automated testing where appropriate.
 
-## 17. AI Assistance Declaration
+## 18. AI Assistance Declaration
 
 Generative AI tools were used as supporting resources during project development, including technical explanation, code review, debugging, testing assistance and documentation preparation.
 
-AI-generated suggestions were reviewed and adapted during implementation. The system was evaluated through automated testing, API execution, agent communication logs and frontend integration testing.
+AI-generated suggestions were reviewed and adapted during implementation.
 
-The project demonstrates the implementation of a coordinated multi-agent architecture using FastAPI, Google Gemini, structured communication, workflow orchestration, validation and testing.
+The application was evaluated through automated testing, API execution, agent communication logs and frontend integration testing.
 
-## Author
-
+## 19. Author
 **Prajita Bhandari**  
+
+**GitHub Repository:**  
+https://github.com/prajitabhandari1234/Multi-Agent-Task-Assistant
