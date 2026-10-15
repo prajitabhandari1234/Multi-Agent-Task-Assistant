@@ -682,6 +682,6 @@ AI-generated suggestions were reviewed and adapted during implementation. The sy
 
 The project demonstrates the implementation of a coordinated multi-agent architecture using FastAPI, Google Gemini, structured communication, workflow orchestration, validation and testing.
 
-## 18. Author
+## Author
 
 **Prajita Bhandari**  
